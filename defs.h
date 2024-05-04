@@ -120,6 +120,9 @@ void            userinit(void);
 int             wait(void);
 void            wakeup(void*);
 void            yield(void);
+//TP: TESTES
+int             wait2(int*, int*, int*);
+void            updateClock(void);
 
 // swtch.S
 void            swtch(struct context**, struct context*);

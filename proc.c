@@ -89,6 +89,13 @@ found:
   p->state = EMBRYO;
   p->pid = nextpid++;
 
+  //MUDANÇAS TP
+  //TP: TESTES
+  p->ctime = ticks;
+  p->stime = 0;
+  p->retime = 0;
+  p->rutime = 0;
+
   release(&ptable.lock);
 
   // Allocate kernel stack.
@@ -129,6 +136,8 @@ userinit(void)
   if((p->pgdir = setupkvm()) == 0)
     panic("userinit: out of memory?");
   inituvm(p->pgdir, _binary_initcode_start, (int)_binary_initcode_size);
+  //TP: TESTES
+  p->ctime = ticks;
   p->sz = PGSIZE;
   memset(p->tf, 0, sizeof(*p->tf));
   p->tf->cs = (SEG_UCODE << 3) | DPL_USER;
@@ -294,6 +303,8 @@ wait(void)
         p->parent = 0;
         p->name[0] = 0;
         p->killed = 0;
+        //TP: TESTES
+        p->ctime = 0;
         p->state = UNUSED;
         release(&ptable.lock);
         return pid;
@@ -531,4 +542,31 @@ procdump(void)
     }
     cprintf("\n");
   }
+}
+
+//MUDANÇAS TP
+//TP: TESTES
+// função responsável para atribuir os tempos que o processo ficou em cada estado
+// OBS: SYSTEM CALL
+int wait2(int* retime, int* rutime, int* stime){
+  //TODO
+  return 0;
+}
+
+//TP: TESTES
+void updateClock() {
+  struct proc *p;
+  acquire(&ptable.lock);
+  for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
+    if(p->state == SLEEPING){
+      p->stime++;
+    }
+    else if(p->state == RUNNABLE){
+      p->retime++;
+    }
+    else if(p->state == RUNNING){
+      p->rutime++;
+    }
+  }
+  release(&ptable.lock);
 }
