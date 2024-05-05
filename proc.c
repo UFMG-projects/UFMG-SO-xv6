@@ -384,6 +384,7 @@ scheduler(void)
   c->proc = 0;
   ptable.proc_num_filas[0] = ptable.proc_num_filas[1] = ptable.proc_num_filas[2] = ptable.proc_num_filas[3] = 0;
   
+  
   for(;;){
     // Enable interrupts on this processor.
     sti();
