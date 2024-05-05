@@ -9,9 +9,9 @@
 
 struct {
   struct spinlock lock;
+  //struct proc* proc[4][NPROC];
   struct proc proc[NPROC];
   //TP: PRIORIDADE
-  struct proc* filas[4][NPROC]; //4 filas de prioridade
   int proc_num_filas[4]; //numero de processos em cada fila de prioridade
 } ptable;
 
@@ -160,7 +160,7 @@ userinit(void)
   acquire(&ptable.lock);
 
   //TP: PRIORIDADE
-  p->priority = rand()%4 + 1;//2;
+  p->priority = 2;
   p->state = RUNNABLE;
 
   release(&ptable.lock);
@@ -229,7 +229,7 @@ fork(void)
 
   np->state = RUNNABLE;
   //TP: PRIORIDADE
-  np->priority = rand()%4 + 1;//2;
+  np->priority = 2;
 
   release(&ptable.lock);
 
@@ -391,86 +391,24 @@ scheduler(void)
     //colocar cada prioridade em sua devida fila
     acquire(&ptable.lock);
     for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
-      //verificar se estão READY
       if(p->state != RUNNABLE)
         continue;
-      
-      switch(p->priority){
-      case 4:
-        ptable.filas[3][ptable.proc_num_filas[3]] = p;
-        ptable.proc_num_filas[3]++;
-        break;
-      case 3:
-        ptable.filas[2][ptable.proc_num_filas[2]] = p;
-        ptable.proc_num_filas[2]++;
-        break;
-      case 2:
-        ptable.filas[1][ptable.proc_num_filas[1]] = p;
-        ptable.proc_num_filas[1]++;
-        break;
-      case 1:
-        ptable.filas[0][ptable.proc_num_filas[0]] = p;
-        ptable.proc_num_filas[0]++;
-        break;
-      default:
-        break;
-      }
-    } //resultado= 4 filas de diferentes prioridade
 
-    //prioridade 4
-    for(p = ptable.proc_num_filas[3]; p < &ptable.proc[NPROC]; p++){
-      //TODO ALGORITMO
       //TP: INTERV
       p->clock  = 0;
 
+      // Switch to chosen process.  It is the process's job
+      // to release ptable.lock and then reacquire it
+      // before jumping back to us.
       c->proc = p;
       switchuvm(p);
       p->state = RUNNING;
+
       swtch(&(c->scheduler), p->context);
       switchkvm();
 
-      c->proc = 0;
-    }
-    //prioridade 3
-    for(p = ptable.proc_num_filas[2]; p < &ptable.proc[NPROC]; p++){
-      //TODO ALGORITMO
-      //TP: INTERV
-      p->clock  = 0;
-
-      c->proc = p;
-      switchuvm(p);
-      p->state = RUNNING;
-      swtch(&(c->scheduler), p->context);
-      switchkvm();
-
-      c->proc = 0;
-    }
-    //prioridade 2
-    for(p = ptable.proc_num_filas[1]; p < &ptable.proc[NPROC]; p++){
-      //TODO ALGORITMO
-      //TP: INTERV
-      p->clock  = 0;
-
-      c->proc = p;
-      switchuvm(p);
-      p->state = RUNNING;
-      swtch(&(c->scheduler), p->context);
-      switchkvm();
-
-      c->proc = 0;
-    }
-    //prioridade 1
-    for(p = ptable.proc_num_filas[0]; p < &ptable.proc[NPROC]; p++){
-      //TODO ALGORITMO
-      //TP: INTERV
-      p->clock  = 0;
-
-      c->proc = p;
-      switchuvm(p);
-      p->state = RUNNING;
-      swtch(&(c->scheduler), p->context);
-      switchkvm();
-
+      // Process is done running for now.
+      // It should have changed its p->state before coming back.
       c->proc = 0;
     }
     release(&ptable.lock);
@@ -705,7 +643,7 @@ int wait2(int* retime, int* rutime, int* stime){
         p->stime = 0;
         
         release(&ptable.lock);
-        return pid; //retorna 0 se deu certo
+        return pid; //retorna PID se deu certo
       }
     }
 
@@ -749,5 +687,5 @@ void updateClock() {
 
 */
 int change_prio(int priority){
-
+  return 0;
 }
