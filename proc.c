@@ -7,12 +7,14 @@
 #include "proc.h"
 #include "spinlock.h"
 
+#define NUMFILAS 4
+
 struct {
   struct spinlock lock;
-  //struct proc* proc[4][NPROC];
-  struct proc proc[NPROC];
+  struct proc* proc[NUMFILAS][NPROC];
+  //struct proc proc[NPROC];
   //TP: PRIORIDADE
-  int proc_num_filas[4]; //numero de processos em cada fila de prioridade
+  int proc_num_filas[NUMFILAS]; //numero de processos em cada fila de prioridade
 } ptable;
 
 static struct proc *initproc;
@@ -80,10 +82,23 @@ allocproc(void)
   char *sp;
 
   acquire(&ptable.lock);
+  cprintf("chegou aqui ALLOCPROC 1'\n");
 
-  for(p = ptable.proc; p < &ptable.proc[NPROC]; p++)
-    if(p->state == UNUSED)
-      goto found;
+  for(int i = 0; i < NUMFILAS; i++){
+    for(int j = 0; j < NPROC; j++){
+      p = ptable.proc[i][j];
+      cprintf("informações do processo: name=%c, id=%d, state=%d\n", p->name, p->pid, p->state);
+      
+      cprintf("chegou aqui ALLOCPROC 2'\n");
+      cprintf("informações do processo: name=%c, id=%d, state=%d\n", p->name, p->pid, p->state);
+      if(p->state == UNUSED){
+        cprintf("chegou aqui ALLOCPROC 3'\n");
+        goto found;
+        
+ 
+      }
+    }
+  }
 
   release(&ptable.lock);
   return 0;
@@ -98,6 +113,8 @@ found:
   p->retime = 0;
   p->rutime = 0;
 
+  cprintf("chegou aqui ALLOCPROC 4'\n");
+
   release(&ptable.lock);
 
   // Allocate kernel stack.
@@ -107,6 +124,8 @@ found:
   }
   sp = p->kstack + KSTACKSIZE;
 
+  cprintf("chegou aqui ALLOCPROC 5'\n");
+
   // Leave room for trap frame.
   sp -= sizeof *p->tf;
   p->tf = (struct trapframe*)sp;
@@ -114,13 +133,14 @@ found:
   // Set up new context to start executing at forkret,
   // which returns to trapret.
   sp -= 4;
-  *(uint*)sp = (uint)trapret;
+  (uint)sp = (uint)trapret;
 
   sp -= sizeof *p->context;
   p->context = (struct context*)sp;
   memset(p->context, 0, sizeof *p->context);
   p->context->eip = (uint)forkret;
 
+  cprintf("chegou aqui ALLOCPROC 6'\n");
   return p;
 }
 
@@ -129,10 +149,14 @@ found:
 void
 userinit(void)
 {
+  
+  cprintf("chegou aqui USERINIT 1'\n");
   struct proc *p;
   extern char _binary_initcode_start[], _binary_initcode_size[];
 
   p = allocproc();
+  
+  cprintf("chegou aqui USERINIT 2'\n");
   
   initproc = p;
   if((p->pgdir = setupkvm()) == 0)
@@ -268,11 +292,15 @@ exit(void)
   wakeup1(curproc->parent);
 
   // Pass abandoned children to init.
-  for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
-    if(p->parent == curproc){
-      p->parent = initproc;
-      if(p->state == ZOMBIE)
-        wakeup1(initproc);
+  for(int i = 0; i < NUMFILAS; i++){
+    for(int j = 0; j < NPROC; j++){
+      p = ptable.proc[i][j];
+      if(p->parent == curproc){
+        p->parent = initproc;
+        if(p->state == ZOMBIE)
+          wakeup1(initproc);
+      }
+      
     }
   }
 
@@ -295,25 +323,28 @@ wait(void)
   for(;;){
     // Scan through table looking for exited children.
     havekids = 0;
-    for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
-      if(p->parent != curproc)
-        continue;
-      havekids = 1;
-      if(p->state == ZOMBIE){
-        // Found one.
-        pid = p->pid;
-        kfree(p->kstack);
-        p->kstack = 0;
-        freevm(p->pgdir);
-        p->pid = 0;
-        p->parent = 0;
-        p->name[0] = 0;
-        p->killed = 0;
-        //TP: TESTES
-        p->ctime = 0;
-        p->state = UNUSED;
-        release(&ptable.lock);
-        return pid;
+    for(int i = 0; i < NUMFILAS; i++){
+      for(int j = 0; j < NPROC; j++){
+        p = ptable.proc[i][j];
+        if(p->parent != curproc)
+          continue;
+        havekids = 1;
+        if(p->state == ZOMBIE){
+          // Found one.
+          pid = p->pid;
+          kfree(p->kstack);
+          p->kstack = 0;
+          freevm(p->pgdir);
+          p->pid = 0;
+          p->parent = 0;
+          p->name[0] = 0;
+          p->killed = 0;
+          //TP: TESTES
+          p->ctime = 0;
+          p->state = UNUSED;
+          release(&ptable.lock);
+          return pid;
+        }
       }
     }
 
@@ -390,26 +421,29 @@ scheduler(void)
 
     //colocar cada prioridade em sua devida fila
     acquire(&ptable.lock);
-    for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
-      if(p->state != RUNNABLE)
-        continue;
+    for(int i = 0; i < NUMFILAS; i++){
+      for(int j = 0; j < NPROC; j++){
+        p = ptable.proc[i][j];
+        if(p->state != RUNNABLE)
+          continue;
 
-      //TP: INTERV
-      p->clock  = 0;
+        //TP: INTERV
+        p->clock  = 0;
 
-      // Switch to chosen process.  It is the process's job
-      // to release ptable.lock and then reacquire it
-      // before jumping back to us.
-      c->proc = p;
-      switchuvm(p);
-      p->state = RUNNING;
+        // Switch to chosen process.  It is the process's job
+        // to release ptable.lock and then reacquire it
+        // before jumping back to us.
+        c->proc = p;
+        switchuvm(p);
+        p->state = RUNNING;
 
-      swtch(&(c->scheduler), p->context);
-      switchkvm();
+        swtch(&(c->scheduler), p->context);
+        switchkvm();
 
-      // Process is done running for now.
-      // It should have changed its p->state before coming back.
-      c->proc = 0;
+        // Process is done running for now.
+        // It should have changed its p->state before coming back.
+        c->proc = 0;
+      }
     }
     release(&ptable.lock);
 
@@ -520,9 +554,13 @@ wakeup1(void *chan)
 {
   struct proc *p;
 
-  for(p = ptable.proc; p < &ptable.proc[NPROC]; p++)
-    if(p->state == SLEEPING && p->chan == chan)
-      p->state = RUNNABLE;
+  for(int i = 0; i < NUMFILAS; i++){
+    for(int j = 0; j < NPROC; j++){
+      p = ptable.proc[i][j];
+      if(p->state == SLEEPING && p->chan == chan)
+        p->state = RUNNABLE;
+    }
+  }
 }
 
 // Wake up all processes sleeping on chan.
@@ -543,14 +581,17 @@ kill(int pid)
   struct proc *p;
 
   acquire(&ptable.lock);
-  for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
-    if(p->pid == pid){
-      p->killed = 1;
-      // Wake process from sleep if necessary.
-      if(p->state == SLEEPING)
-        p->state = RUNNABLE;
-      release(&ptable.lock);
-      return 0;
+  for(int i = 0; i < NUMFILAS; i++){
+    for(int j = 0; j < NPROC; j++){
+      p = ptable.proc[i][j];
+      if(p->pid == pid){
+        p->killed = 1;
+        // Wake process from sleep if necessary.
+        if(p->state == SLEEPING)
+          p->state = RUNNABLE;
+        release(&ptable.lock);
+        return 0;
+      }
     }
   }
   release(&ptable.lock);
@@ -577,20 +618,23 @@ procdump(void)
   char *state;
   uint pc[10];
 
-  for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
-    if(p->state == UNUSED)
-      continue;
-    if(p->state >= 0 && p->state < NELEM(states) && states[p->state])
-      state = states[p->state];
-    else
-      state = "???";
-    cprintf("%d %s %s", p->pid, state, p->name);
-    if(p->state == SLEEPING){
-      getcallerpcs((uint*)p->context->ebp+2, pc);
-      for(i=0; i<10 && pc[i] != 0; i++)
-        cprintf(" %p", pc[i]);
+  for(int a = 0; a < NUMFILAS; a++){
+    for(int j = 0; j < NPROC; j++){
+      p = ptable.proc[a][j];
+      if(p->state == UNUSED)
+        continue;
+      if(p->state >= 0 && p->state < NELEM(states) && states[p->state])
+        state = states[p->state];
+      else
+        state = "???";
+      cprintf("%d %s %s", p->pid, state, p->name);
+      if(p->state == SLEEPING){
+        getcallerpcs((uint*)p->context->ebp+2, pc);
+        for(i=0; i<10 && pc[i] != 0; i++)
+          cprintf(" %p", pc[i]);
+      }
+      cprintf("\n");
     }
-    cprintf("\n");
   }
 }
 
@@ -615,35 +659,37 @@ int wait2(int* retime, int* rutime, int* stime){
   for(;;){
     //procurando zombie child -> processo filho que terminou
     havekids = 0;
-    for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
-      
-      if(p->parent != myproc()) //child
-        continue;
-      havekids = 1;
+    for(int i = 0; i < NUMFILAS; i++){
+      for(int j = 0; j < NPROC; j++){
+        p = ptable.proc[i][j];
+        if(p->parent != myproc()) //child
+          continue;
+        havekids = 1;
 
-      if(p->state == ZOMBIE){ //child e zombie
-        //atualizar tempo do encontrado
-        int pid = p->pid;
-        *retime = p->retime;
-        *rutime = p->rutime;
-        *stime = p->stime;
+        if(p->state == ZOMBIE){ //child e zombie
+          //atualizar tempo do encontrado
+          int pid = p->pid;
+          *retime = p->retime;
+          *rutime = p->rutime;
+          *stime = p->stime;
 
-        //liberar espaço
-        kfree(p->kstack);
-        p->kstack = 0;
-        freevm(p->pgdir);
-        p->state = UNUSED;
-        p->pid = 0;
-        p->parent = 0;
-        p->name[0] = 0;
-        p->killed = 0;
-        p->ctime = 0;
-        p->retime = 0;
-        p->rutime = 0;
-        p->stime = 0;
-        
-        release(&ptable.lock);
-        return pid; //retorna PID se deu certo
+          //liberar espaço
+          kfree(p->kstack);
+          p->kstack = 0;
+          freevm(p->pgdir);
+          p->state = UNUSED;
+          p->pid = 0;
+          p->parent = 0;
+          p->name[0] = 0;
+          p->killed = 0;
+          p->ctime = 0;
+          p->retime = 0;
+          p->rutime = 0;
+          p->stime = 0;
+          
+          release(&ptable.lock);
+          return pid; //retorna PID se deu certo
+        }
       }
     }
 
@@ -665,18 +711,21 @@ int wait2(int* retime, int* rutime, int* stime){
 void updateClock() {
   struct proc *p;
   acquire(&ptable.lock);
-  for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
-    if(p->state == SLEEPING){
-      p->stime++;
-      p->clock = 0;
-    }
-    else if(p->state == RUNNABLE){
-      p->retime++;
-      p->clock = 0;
-    }
-    else if(p->state == RUNNING){
-      p->rutime++;
-      p->clock++;
+  for(int i = 0; i < NUMFILAS; i++){
+    for(int j = 0; j < NPROC; j++){
+      p = ptable.proc[i][j];
+      if(p->state == SLEEPING){
+        p->stime++;
+        p->clock = 0;
+      }
+      else if(p->state == RUNNABLE){
+        p->retime++;
+        p->clock = 0;
+      }
+      else if(p->state == RUNNING){
+        p->rutime++;
+        p->clock++;
+      }
     }
   }
   release(&ptable.lock);
@@ -689,5 +738,3 @@ void updateClock() {
 int change_prio(int priority){
   return 0;
 }
-
-//TESTE
