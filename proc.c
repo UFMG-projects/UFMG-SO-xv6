@@ -547,14 +547,72 @@ procdump(void)
 }
 
 //TP: TESTES
-// função responsável para atribuir os tempos que o processo ficou em cada estado
+/*
+ * Função wait2 espera que um processo filho termine e retorna algumas estatísticas sobre esse processo.
+ *
+ * Entradas:
+ *   - retime: Ponteiro para um inteiro que armazenará o tempo de espera (READY) do processo filho.
+ *   - rutime: Ponteiro para um inteiro que armazenará o tempo de execução na CPU (RUNNING) do processo filho.
+ *   - stime: Ponteiro para um inteiro que armazenará o tempo de dormir (SLEEP) do processo filho.
+ *
+ * Saída:
+ *   - Retorna 0 em caso de sucesso ou -1 se nenhum processo filho estiver disponível para esperar.
+ */
 // OBS: SYSTEM CALL
 int wait2(int* retime, int* rutime, int* stime){
-  //TODO
-  return 0;
+  struct proc *p;
+  int havekids;
+
+  acquire(&ptable.lock);
+  for(;;){
+    //procurando zombie child -> processo filho que terminou
+    havekids = 0;
+    for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
+      
+      if(p->parent != myproc()) //child
+        continue;
+      havekids = 1;
+
+      if(p->state == ZOMBIE){ //child e zombie
+        //atualizar tempo do encontrado
+        *retime = p->retime;
+        *rutime = p->rutime;
+        *stime = p->stime;
+
+        //liberar espaço
+        kfree(p->kstack);
+        p->kstack = 0;
+        freevm(p->pgdir);
+        p->state = UNUSED;
+        p->pid = 0;
+        p->parent = 0;
+        p->name[0] = 0;
+        p->killed = 0;
+        p->ctime = 0;
+        p->retime = 0;
+        p->rutime = 0;
+        p->stime = 0;
+        
+        release(&ptable.lock);
+        return 0; //retorna 0 se deu certo
+      }
+    }
+
+    //não tem nenhuma child ou foi finalizado
+    if(!havekids || myproc()->killed){
+      release(&ptable.lock);
+      return -1; //retorna -1 se NÃO deu certo
+    }
+
+    // Wait for children to exit.  (See wakeup1 call in proc_exit.)
+    sleep(myproc(), &ptable.lock);  //DOC: wait-sleep
+  }
 }
 
 //TP: TESTES
+/*
+ * Função updateClock atualiza o relógio do sistema e as estatísticas de tempo de execução de cada processo.
+ */
 void updateClock() {
   struct proc *p;
   acquire(&ptable.lock);

@@ -52,7 +52,7 @@ trap(struct trapframe *tf)
       acquire(&tickslock);
       ticks++;
       //TP: TESTES
-      updateClock; 
+      updateClock(); 
       wakeup(&ticks);
       release(&tickslock);
     }

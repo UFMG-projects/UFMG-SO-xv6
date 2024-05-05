@@ -5,6 +5,7 @@
 #define NUM_PROCESSOS 3
 
 void executarCargaTipoProcesso(int tipo_processo){
+    printf(1, "executarCarga, tipo do processo é: %d\n", tipo_processo);
     switch (tipo_processo) {
         case 0: //CPU-bound process (CPU)
             for (int a = 0; a < 100; a++) {
@@ -36,16 +37,20 @@ int main(int argc, char *argv[]){
     int n = atoi(argv[1]);
     int pid, tipo_processo;
     //criar os 3*n processos
+    printf(1, "Chegou aqui 1 e PID: %d\n",  getpid());
     for(int i = 0; i < NUM_PROCESSOS * n; i++) {
 		pid = fork();
 		if (pid == 0) {//child
+            printf(1, "for loop 1 e PID: %d\n",  getpid());
             tipo_processo = getpid() % NUM_PROCESSOS; //calculo para atribuir um tipo ao processo
             executarCargaTipoProcesso(tipo_processo);
 			exit(); //children exit here
 		}
 		continue; // pai continua a criar outros child
+        printf(1, "for loop 2, i é: %d\n", i);
 	}
 
+    printf(1, "Chegou aqui 2\n");
     //estatisticas de cada processo
     int retime, rutime, stime;
     int cpu_retime = 0, cpu_rutime = 0, cpu_stime = 0, cpu_n = 0;
@@ -54,9 +59,10 @@ int main(int argc, char *argv[]){
     int wait2_ok = 0;
     for(int i = 0; i < NUM_PROCESSOS * n; i++){
         wait2_ok = wait2(&retime, &rutime, &stime);
+        printf(1, "Chegou aqui 3\n");
         if(wait2_ok != 0){
             printf(1, "Erro na Wait2, ao retornar estatisticas do processo\n");
-		    exit();
+		    //exit();
         }
         pid = getpid();
         tipo_processo = pid % NUM_PROCESSOS; //calculo para atribuir um tipo ao processo

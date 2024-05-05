@@ -22,3 +22,4 @@
 #define SYS_close  21
 //TP: TESTES
 #define SYS_wait2  23
+#define SYS_yield  24
