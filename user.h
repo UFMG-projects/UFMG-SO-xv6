@@ -23,7 +23,6 @@ int getpid(void);
 char* sbrk(int);
 int sleep(int);
 int uptime(void);
-//MUDANÇAS TP
 //TP: TESTES
 int wait2(int*, int*, int*);
 

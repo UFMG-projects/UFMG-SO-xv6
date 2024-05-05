@@ -89,7 +89,6 @@ found:
   p->state = EMBRYO;
   p->pid = nextpid++;
 
-  //MUDANÇAS TP
   //TP: TESTES
   p->ctime = ticks;
   p->stime = 0;
@@ -347,6 +346,9 @@ scheduler(void)
       if(p->state != RUNNABLE)
         continue;
 
+      //TP: INTERV
+      p->clock  = 0;
+
       // Switch to chosen process.  It is the process's job
       // to release ptable.lock and then reacquire it
       // before jumping back to us.
@@ -544,7 +546,6 @@ procdump(void)
   }
 }
 
-//MUDANÇAS TP
 //TP: TESTES
 // função responsável para atribuir os tempos que o processo ficou em cada estado
 // OBS: SYSTEM CALL
@@ -560,12 +561,15 @@ void updateClock() {
   for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
     if(p->state == SLEEPING){
       p->stime++;
+      p->clock = 0;
     }
     else if(p->state == RUNNABLE){
       p->retime++;
+      p->clock = 0;
     }
     else if(p->state == RUNNING){
       p->rutime++;
+      p->clock++;
     }
   }
   release(&ptable.lock);

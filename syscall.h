@@ -20,6 +20,5 @@
 #define SYS_link   19
 #define SYS_mkdir  20
 #define SYS_close  21
-//MUDANÇAS TP
 //TP: TESTES
 #define SYS_wait2  23

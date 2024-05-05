@@ -1,4 +1,3 @@
-//MUDANÇAS TP
 //TP: TESTES
 #include "types.h"
 #include "user.h"

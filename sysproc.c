@@ -90,7 +90,6 @@ sys_uptime(void)
   return xticks;
 }
 
-//MUDANÇAS TP
 //TP: TESTES
 int sys_wait2(void) {
   int *retime, *rutime, *stime;
