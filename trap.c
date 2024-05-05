@@ -53,6 +53,8 @@ trap(struct trapframe *tf)
       ticks++;
       //TP: TESTES
       updateClock(); 
+      //TP: PRIORIDADE
+      updateFilaPrioridade();
       wakeup(&ticks);
       release(&tickslock);
     }

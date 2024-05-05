@@ -9,9 +9,8 @@
 
 struct {
   struct spinlock lock;
-  struct proc proc[NPROC];
+  struct proc* proc[4][NPROC];
   //TP: PRIORIDADE
-  struct proc* filas[4][NPROC]; //4 filas de prioridade
   int proc_num_filas[4]; //numero de processos em cada fila de prioridade
 } ptable;
 
@@ -27,6 +26,10 @@ void
 pinit(void)
 {
   initlock(&ptable.lock, "ptable");
+  ptable.proc_num_filas[0] = -1;
+  ptable.proc_num_filas[1] = -1; //principal
+  ptable.proc_num_filas[2] = -1;
+  ptable.proc_num_filas[3] = -1;  
 }
 
 // Must be called with interrupts disabled
@@ -97,6 +100,8 @@ found:
   p->stime = 0;
   p->retime = 0;
   p->rutime = 0;
+  //TP: PRIORIDADE
+  p->priority = 1; //na verdade é a 2 :)
 
   release(&ptable.lock);
 
@@ -159,9 +164,10 @@ userinit(void)
   // because the assignment might not be atomic.
   acquire(&ptable.lock);
 
-  //TP: PRIORIDADE
-  p->priority = rand()%4 + 1;//2;
   p->state = RUNNABLE;
+  //TP: PRIORIDADE
+  ptable.proc_num_filas[1]++;
+  ptable.filas[1][ptable.proc_num_filas[1]] = p;
 
   release(&ptable.lock);
 }
@@ -227,9 +233,11 @@ fork(void)
 
   acquire(&ptable.lock);
 
-  np->state = RUNNABLE;
   //TP: PRIORIDADE
-  np->priority = rand()%4 + 1;//2;
+  ptable.proc_num_filas[1]++;
+  ptable.filas[1][ptable.proc_num_filas[1]] = np;
+
+  np->state = RUNNABLE;
 
   release(&ptable.lock);
 
@@ -382,7 +390,6 @@ scheduler(void)
   struct proc *p;
   struct cpu *c = mycpu();
   c->proc = 0;
-  ptable.proc_num_filas[0] = ptable.proc_num_filas[1] = ptable.proc_num_filas[2] = ptable.proc_num_filas[3] = 0;
   
   for(;;){
     // Enable interrupts on this processor.
@@ -390,91 +397,32 @@ scheduler(void)
 
     //colocar cada prioridade em sua devida fila
     acquire(&ptable.lock);
-    for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
-      //verificar se estão READY
-      if(p->state != RUNNABLE)
-        continue;
-      
-      switch(p->priority){
-      case 4:
-        ptable.filas[3][ptable.proc_num_filas[3]] = p;
-        ptable.proc_num_filas[3]++;
-        break;
-      case 3:
-        ptable.filas[2][ptable.proc_num_filas[2]] = p;
-        ptable.proc_num_filas[2]++;
-        break;
-      case 2:
-        ptable.filas[1][ptable.proc_num_filas[1]] = p;
-        ptable.proc_num_filas[1]++;
-        break;
-      case 1:
-        ptable.filas[0][ptable.proc_num_filas[0]] = p;
-        ptable.proc_num_filas[0]++;
-        break;
-      default:
-        break;
+    for(int priority = 3; priority <= 0; priority--){
+      while(ptable.proc_num_filas[priority] > -1){
+        if(p->state != RUNNABLE)
+          continue;
+
+        p = ptable.filas[priority][0];
+
+        //evitar buracos na fila dos processos
+        for(int i = 0; i < ptable.proc_num_filas[priority]; i++){
+          ptable.filas[priority][i] = ptable.filas[priority][i+1];
+        }
+        ptable.proc_num_filas[priority]--;
+
+        //TP: INTERV
+        p->clock  = 0;
+
+        c->proc = p;
+        switchuvm(p);
+        p->state = RUNNING;
+        swtch(&(c->scheduler), p->context);
+        switchkvm();
+
+        c->proc = 0;
       }
-    } //resultado= 4 filas de diferentes prioridade
-
-    //prioridade 4
-    for(p = ptable.proc_num_filas[3]; p < &ptable.proc[NPROC]; p++){
-      //TODO ALGORITMO
-      //TP: INTERV
-      p->clock  = 0;
-
-      c->proc = p;
-      switchuvm(p);
-      p->state = RUNNING;
-      swtch(&(c->scheduler), p->context);
-      switchkvm();
-
-      c->proc = 0;
-    }
-    //prioridade 3
-    for(p = ptable.proc_num_filas[2]; p < &ptable.proc[NPROC]; p++){
-      //TODO ALGORITMO
-      //TP: INTERV
-      p->clock  = 0;
-
-      c->proc = p;
-      switchuvm(p);
-      p->state = RUNNING;
-      swtch(&(c->scheduler), p->context);
-      switchkvm();
-
-      c->proc = 0;
-    }
-    //prioridade 2
-    for(p = ptable.proc_num_filas[1]; p < &ptable.proc[NPROC]; p++){
-      //TODO ALGORITMO
-      //TP: INTERV
-      p->clock  = 0;
-
-      c->proc = p;
-      switchuvm(p);
-      p->state = RUNNING;
-      swtch(&(c->scheduler), p->context);
-      switchkvm();
-
-      c->proc = 0;
-    }
-    //prioridade 1
-    for(p = ptable.proc_num_filas[0]; p < &ptable.proc[NPROC]; p++){
-      //TODO ALGORITMO
-      //TP: INTERV
-      p->clock  = 0;
-
-      c->proc = p;
-      switchuvm(p);
-      p->state = RUNNING;
-      swtch(&(c->scheduler), p->context);
-      switchkvm();
-
-      c->proc = 0;
     }
     release(&ptable.lock);
-
   }
 }
 
@@ -583,8 +531,11 @@ wakeup1(void *chan)
   struct proc *p;
 
   for(p = ptable.proc; p < &ptable.proc[NPROC]; p++)
-    if(p->state == SLEEPING && p->chan == chan)
+    if(p->state == SLEEPING && p->chan == chan){
+      ptable.proc_num_filas[p->priority]++;
+      ptable.filas[p->priority][ptable.proc_num_filas[p->priority]] = p;
       p->state = RUNNABLE;
+    }
 }
 
 // Wake up all processes sleeping on chan.
@@ -609,8 +560,11 @@ kill(int pid)
     if(p->pid == pid){
       p->killed = 1;
       // Wake process from sleep if necessary.
-      if(p->state == SLEEPING)
+      if(p->state == SLEEPING){
+        ptable.proc_num_filas[p->priority]++;
+        ptable.filas[p->priority][ptable.proc_num_filas[p->priority]] = p;
         p->state = RUNNABLE;
+      }
       release(&ptable.lock);
       return 0;
     }
@@ -748,6 +702,40 @@ void updateClock() {
 /*
 
 */
-int change_prio(int priority){
+void updateFilaPrioridade(){
+  struct proc* p;
+  
+  acquire(&ptable.lock);
+  for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
+    if (p->state == RUNNABLE) {
+        //delete the runnable process from its original queue
+      int token;
+      for (token = 0; token < NPROC; token++) {
+        if (p == ptable.filas[p->priority][token]) {
+          int i;
+          for (i = token; i < ptable.proc_num_filas[p->priority]; i++) {
+            ptable.filas[p->priority][i] = ptable.filas[p->priority][i + 1];
+          }
+          ptable.proc_num_filas[p->priority]--;
+        }
+        break;
+      }
+      //set the priority to 0, and add it to the first queue
+      p->priority = 1;
+      ptable.proc_num_filas[1]++;
+      ptable.filas[1][ptable.proc_num_filas[1]] = p;
+    } else {
+      //queues only contain process that are runnable, so change the priority is enough.
+      p->priority = 0;
+    }
+  }
+  release(&ptable.lock);
+}
 
+//TP: PRIORIDADE
+/*
+
+*/
+int change_prio(int priority){
+  return 0;
 }
