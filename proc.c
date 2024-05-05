@@ -10,6 +10,9 @@
 struct {
   struct spinlock lock;
   struct proc proc[NPROC];
+  //TP: PRIORIDADE
+  struct proc* filas[4][NPROC]; //4 filas de prioridade
+  int proc_num_filas[4]; //numero de processos em cada fila de prioridade
 } ptable;
 
 static struct proc *initproc;
@@ -156,6 +159,8 @@ userinit(void)
   // because the assignment might not be atomic.
   acquire(&ptable.lock);
 
+  //TP: PRIORIDADE
+  p->priority = rand()%4 + 1;//2;
   p->state = RUNNABLE;
 
   release(&ptable.lock);
@@ -223,6 +228,8 @@ fork(void)
   acquire(&ptable.lock);
 
   np->state = RUNNABLE;
+  //TP: PRIORIDADE
+  np->priority = rand()%4 + 1;//2;
 
   release(&ptable.lock);
 
@@ -329,6 +336,7 @@ wait(void)
 //  - swtch to start running that process
 //  - eventually that process transfers control
 //      via swtch back to the scheduler.
+/*
 void
 scheduler(void)
 {
@@ -361,6 +369,108 @@ scheduler(void)
 
       // Process is done running for now.
       // It should have changed its p->state before coming back.
+      c->proc = 0;
+    }
+    release(&ptable.lock);
+
+  }
+}
+*/
+void
+scheduler(void)
+{
+  struct proc *p;
+  struct cpu *c = mycpu();
+  c->proc = 0;
+  ptable.proc_num_filas[0] = ptable.proc_num_filas[1] = ptable.proc_num_filas[2] = ptable.proc_num_filas[3] = 0;
+  
+  for(;;){
+    // Enable interrupts on this processor.
+    sti();
+
+    //colocar cada prioridade em sua devida fila
+    acquire(&ptable.lock);
+    for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
+      //verificar se estão READY
+      if(p->state != RUNNABLE)
+        continue;
+      
+      switch(p->priority){
+      case 4:
+        ptable.filas[3][ptable.proc_num_filas[3]] = p;
+        ptable.proc_num_filas[3]++;
+        break;
+      case 3:
+        ptable.filas[2][ptable.proc_num_filas[2]] = p;
+        ptable.proc_num_filas[2]++;
+        break;
+      case 2:
+        ptable.filas[1][ptable.proc_num_filas[1]] = p;
+        ptable.proc_num_filas[1]++;
+        break;
+      case 1:
+        ptable.filas[0][ptable.proc_num_filas[0]] = p;
+        ptable.proc_num_filas[0]++;
+        break;
+      default:
+        break;
+      }
+    } //resultado= 4 filas de diferentes prioridade
+
+    //prioridade 4
+    for(p = ptable.proc_num_filas[3]; p < &ptable.proc[NPROC]; p++){
+      //TODO ALGORITMO
+      //TP: INTERV
+      p->clock  = 0;
+
+      c->proc = p;
+      switchuvm(p);
+      p->state = RUNNING;
+      swtch(&(c->scheduler), p->context);
+      switchkvm();
+
+      c->proc = 0;
+    }
+    //prioridade 3
+    for(p = ptable.proc_num_filas[2]; p < &ptable.proc[NPROC]; p++){
+      //TODO ALGORITMO
+      //TP: INTERV
+      p->clock  = 0;
+
+      c->proc = p;
+      switchuvm(p);
+      p->state = RUNNING;
+      swtch(&(c->scheduler), p->context);
+      switchkvm();
+
+      c->proc = 0;
+    }
+    //prioridade 2
+    for(p = ptable.proc_num_filas[1]; p < &ptable.proc[NPROC]; p++){
+      //TODO ALGORITMO
+      //TP: INTERV
+      p->clock  = 0;
+
+      c->proc = p;
+      switchuvm(p);
+      p->state = RUNNING;
+      swtch(&(c->scheduler), p->context);
+      switchkvm();
+
+      c->proc = 0;
+    }
+    //prioridade 1
+    for(p = ptable.proc_num_filas[0]; p < &ptable.proc[NPROC]; p++){
+      //TODO ALGORITMO
+      //TP: INTERV
+      p->clock  = 0;
+
+      c->proc = p;
+      switchuvm(p);
+      p->state = RUNNING;
+      swtch(&(c->scheduler), p->context);
+      switchkvm();
+
       c->proc = 0;
     }
     release(&ptable.lock);
@@ -575,6 +685,7 @@ int wait2(int* retime, int* rutime, int* stime){
 
       if(p->state == ZOMBIE){ //child e zombie
         //atualizar tempo do encontrado
+        int pid = p->pid;
         *retime = p->retime;
         *rutime = p->rutime;
         *stime = p->stime;
@@ -594,7 +705,7 @@ int wait2(int* retime, int* rutime, int* stime){
         p->stime = 0;
         
         release(&ptable.lock);
-        return 0; //retorna 0 se deu certo
+        return pid; //retorna 0 se deu certo
       }
     }
 
@@ -631,4 +742,12 @@ void updateClock() {
     }
   }
   release(&ptable.lock);
+}
+
+//TP: PRIORIDADE
+/*
+
+*/
+int change_prio(int priority){
+
 }

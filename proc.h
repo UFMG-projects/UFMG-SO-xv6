@@ -56,7 +56,9 @@ struct proc {
   int retime; //Tempo READY(RUNNABLE) time
   int rutime; // Tempo executando (RUNNING)
   //TP: INTERV
-  int clock;
+  int clock; //clock até dar o valor do INTEV
+  //TP: PRIORIDADE
+  int priority; //prioridade dos processos[1,2,3,4], defalt: 2
 };
 
 // Process memory is laid out contiguously, low addresses first:

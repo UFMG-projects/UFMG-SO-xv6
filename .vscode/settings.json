@@ -58,6 +58,7 @@
   "C_Cpp_Runner.msvcSecureNoWarnings": false,
   "files.associations": {
     "user.h": "c",
-    "types.h": "c"
+    "types.h": "c",
+    "stdlib.h": "c"
   }
 }
