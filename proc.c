@@ -84,9 +84,18 @@ allocproc(void)
 
   acquire(&ptable.lock);
 
+  //TP: PRIORIDADE
+  //comecar com priority 2
+  for(int j = 0; j < NPROC; j++){
+    p = &ptable.proc[1][j];
+    if (p->state == UNUSED){
+      goto found;
+    }
+  }
+
   for(int i = 0; i < NUMFILAS; i++){
     for(int j = 0; j < NPROC; j++){
-      p = &ptable.proc[i][j];if(p->state == UNUSED)
+      p = &ptable.proc[i][j];
       if (p->state == UNUSED){
         goto found;
       }
@@ -105,6 +114,9 @@ found:
   p->stime = 0;
   p->retime = 0;
   p->rutime = 0;
+  //TP: PRIORIDADE
+  p->priority = 2; 
+  ptable.proc_num_filas[1]++; //aumentar num proc
 
   release(&ptable.lock);
 
@@ -167,10 +179,6 @@ userinit(void)
   // because the assignment might not be atomic.
   acquire(&ptable.lock);
 
-  //TP: PRIORIDADE
-  p->priority = 2;
-  // ptable.proc[1][ptable.proc_num_filas[1]] = *p; //adicionando na fila
-  // ptable.proc_num_filas[1]++; //aumentar num proc
   p->state = RUNNABLE;
 
   release(&ptable.lock);
@@ -240,8 +248,8 @@ fork(void)
   np->state = RUNNABLE;
   //TP: PRIORIDADE
   np->priority = 2;
-  // ptable.proc[3][ptable.proc_num_filas[3]] = *np; //adicionando na fila
-  // ptable.proc_num_filas[3]++; //aumentar num proc
+  //ptable.proc[1][ptable.proc_num_filas[1]] = *np; //adicionando na fila
+  //ptable.proc_num_filas[1]++; //aumentar num proc
 
   release(&ptable.lock);
 
@@ -289,6 +297,10 @@ exit(void)
           wakeup1(initproc);
       }
       
+      for(int k = j; k < ptable.proc_num_filas[0] - 1; k++){
+        ptable.proc[0][k] = ptable.proc[0][k+1]; //andar com a fila
+      }
+      ptable.proc_num_filas[0]--; //diminuir num proc
     }
   }
 
@@ -376,9 +388,17 @@ scheduler(void)
         p = &ptable.proc[i][j];
         if(p->state != RUNNABLE)
           continue;
-
+        // cprintf("ptable.proc_num_filas[0]: %d\n",ptable.proc_num_filas[0]);
+        // cprintf("ptable.proc_num_filas[1]: %d\n",ptable.proc_num_filas[1]);
+        // cprintf("ptable.proc_num_filas[2]: %d\n",ptable.proc_num_filas[2]);
+        // cprintf("ptable.proc_num_filas[3]: %d\n",ptable.proc_num_filas[3]);
+        //cprintf("FILA é: %d, proc é %d\n",i, j);
         //TP: INTERV
         p->clock  = 0;
+        for(int k = j; k < ptable.proc_num_filas[i] - 1; k++){
+          ptable.proc[i][k] = ptable.proc[i][k+1]; //andar com a fila
+        }
+        ptable.proc_num_filas[i]--; //diminuir num proc
 
         // Switch to chosen process.  It is the process's job
         // to release ptable.lock and then reacquire it
@@ -395,6 +415,7 @@ scheduler(void)
         c->proc = 0;
       }
     }
+
     release(&ptable.lock);
 
   }
@@ -413,11 +434,108 @@ scheduler(void)
     
     acquire(&ptable.lock);
 
-    for(int i = 0; i < NUMFILAS; i++){
+    // for(int i = 0; i < NUMFILAS; i++){
+    //   for(int j = 0; j < NPROC; j++){
+    //     p = &ptable.proc[i][j];
+    //     if(p->state != RUNNABLE)
+    //       continue;
+    //     // cprintf("ptable.proc_num_filas[0]: %d\n",ptable.proc_num_filas[0]);
+    //     // cprintf("ptable.proc_num_filas[1]: %d\n",ptable.proc_num_filas[1]);
+    //     // cprintf("ptable.proc_num_filas[2]: %d\n",ptable.proc_num_filas[2]);
+    //     // cprintf("ptable.proc_num_filas[3]: %d\n",ptable.proc_num_filas[3]);
+    //     //cprintf("FILA é: %d, proc é %d\n",i, j);
+    //     //TP: INTERV
+    //     p->clock  = 0;
+    //     for(int k = j; k < ptable.proc_num_filas[i] - 1; k++){
+    //       ptable.proc[i][k] = ptable.proc[i][k+1]; //andar com a fila
+    //     }
+    //     ptable.proc_num_filas[i]--; //diminuir num proc
+
+    //     // Switch to chosen process.  It is the process's job
+    //     // to release ptable.lock and then reacquire it
+    //     // before jumping back to us.
+    //     c->proc = p;
+    //     switchuvm(p);
+    //     p->state = RUNNING;
+
+    //     swtch(&(c->scheduler), p->context);
+    //     switchkvm();
+
+    //     // Process is done running for now.
+    //     // It should have changed its p->state before coming back.
+    //     c->proc = 0;
+    //   }
+    // }
+    // 4 -> ROUND-ROBIN
+    if(ptable.proc_num_filas[3] > 0){ //fila de maior prioridade -> 4
       for(int j = 0; j < NPROC; j++){
-        p = &ptable.proc[i][j];
+        p = &ptable.proc[3][j];
+
         if(p->state != RUNNABLE)
           continue;
+        cprintf("PRIORIDADE 4\n");
+
+        //TP: INTERV
+        p->clock  = 0;
+        for(int k = j; k < ptable.proc_num_filas[3] - 1; k++){
+          ptable.proc[3][k] = ptable.proc[3][k+1]; //andar com a fila
+        }
+        ptable.proc_num_filas[3]--; //diminuir num proc
+
+        // Switch to chosen process.  It is the process's job
+        // to release ptable.lock and then reacquire it
+        // before jumping back to us.
+        c->proc = p;
+        switchuvm(p);
+        p->state = RUNNING;
+
+        swtch(&(c->scheduler), p->context);
+        switchkvm();
+
+        // Process is done running for now.
+        // It should have changed its p->state before coming back.
+        c->proc = 0;
+      }
+    }
+    // 3 -> ??
+    else if(ptable.proc_num_filas[2] > 0){
+      for(int j = 0; j < NPROC; j++){
+        p = &ptable.proc[2][j];
+
+        if(p->state != RUNNABLE)
+          continue;
+        cprintf("PRIORIDADE 3\n");
+
+        //TP: INTERV
+        p->clock  = 0;
+        for(int k = j; k < ptable.proc_num_filas[2] - 1; k++){
+          ptable.proc[2][k] = ptable.proc[2][k+1]; //andar com a fila
+        }
+        ptable.proc_num_filas[2]--; //diminuir num proc
+
+        // Switch to chosen process.  It is the process's job
+        // to release ptable.lock and then reacquire it
+        // before jumping back to us.
+        c->proc = p;
+        switchuvm(p);
+        p->state = RUNNING;
+
+        swtch(&(c->scheduler), p->context);
+        switchkvm();
+
+        // Process is done running for now.
+        // It should have changed its p->state before coming back.
+        c->proc = 0;
+      }
+    }
+    // 2 -> ??
+    else if(ptable.proc_num_filas[1] > 0){ //prioridade padrão
+      for(int j = 0; j < NPROC; j++){
+        p = &ptable.proc[1][j];
+
+        if(p->state != RUNNABLE)
+          continue;
+        //cprintf("PRIORIDADE 2\n");
 
         //TP: INTERV
         p->clock  = 0;
@@ -437,113 +555,37 @@ scheduler(void)
         c->proc = 0;
       }
     }
-    
-    // // 4 -> ROUND-ROBIN
-    // if(ptable.proc_num_filas[3] > 0){ //fila de maior prioridade -> 4
-    //   for(int j = 0; j < ptable.proc_num_filas[3]; j++){
-    //     p = &ptable.proc[3][j];
-    //     cprintf("PRIORIDADE 4 -> 1\n");
+    // 1 -> ??
+    else if(ptable.proc_num_filas[0] > 0){
+      for(int j = 0; j < NPROC; j++){
+        p = &ptable.proc[0][j];
 
-    //     if(p->state != RUNNABLE)
-    //       continue;
-    //     cprintf("PRIORIDADE 4\n");
+        if(p->state != RUNNABLE)
+          continue;
+        cprintf("PRIORIDADE 1\n");
 
-    //     //TP: INTERV
-    //     p->clock  = 0;
+        //TP: INTERV
+        p->clock  = 0;
+        for(int k = j; k < ptable.proc_num_filas[0] - 1; k++){
+          ptable.proc[0][k] = ptable.proc[0][k+1]; //andar com a fila
+        }
+        ptable.proc_num_filas[0]--; //diminuir num proc
 
-    //     // Switch to chosen process.  It is the process's job
-    //     // to release ptable.lock and then reacquire it
-    //     // before jumping back to us.
-    //     c->proc = p;
-    //     switchuvm(p);
-    //     p->state = RUNNING;
+        // Switch to chosen process.  It is the process's job
+        // to release ptable.lock and then reacquire it
+        // before jumping back to us.
+        c->proc = p;
+        switchuvm(p);
+        p->state = RUNNING;
 
-    //     swtch(&(c->scheduler), p->context);
-    //     switchkvm();
+        swtch(&(c->scheduler), p->context);
+        switchkvm();
 
-    //     // Process is done running for now.
-    //     // It should have changed its p->state before coming back.
-    //     c->proc = 0;
-    //   }
-    // }
-    // // 3 -> ??
-    // else if(ptable.proc_num_filas[2] > 0){
-    //   for(int j = 0; j < ptable.proc_num_filas[2]; j++){
-    //     p = &ptable.proc[2][j];
-
-    //     if(p->state != RUNNABLE)
-    //       continue;
-
-    //     //TP: INTERV
-    //     p->clock  = 0;
-
-    //     // Switch to chosen process.  It is the process's job
-    //     // to release ptable.lock and then reacquire it
-    //     // before jumping back to us.
-    //     c->proc = p;
-    //     switchuvm(p);
-    //     p->state = RUNNING;
-
-    //     swtch(&(c->scheduler), p->context);
-    //     switchkvm();
-
-    //     // Process is done running for now.
-    //     // It should have changed its p->state before coming back.
-    //     c->proc = 0;
-    //   }
-    // }
-    // // 2 -> ??
-    // else if(ptable.proc_num_filas[1] > 0){ //prioridade padrão
-    //   for(int j = 0; j < ptable.proc_num_filas[1]; j++){
-    //     p = &ptable.proc[1][j];
-
-    //     if(p->state != RUNNABLE)
-    //       continue;
-
-    //     //TP: INTERV
-    //     p->clock  = 0;
-
-    //     // Switch to chosen process.  It is the process's job
-    //     // to release ptable.lock and then reacquire it
-    //     // before jumping back to us.
-    //     c->proc = p;
-    //     switchuvm(p);
-    //     p->state = RUNNING;
-
-    //     swtch(&(c->scheduler), p->context);
-    //     switchkvm();
-
-    //     // Process is done running for now.
-    //     // It should have changed its p->state before coming back.
-    //     c->proc = 0;
-    //   }
-    // }
-    // // 1 -> ??
-    // else{
-    //   for(int j = 0; j < ptable.proc_num_filas[0]; j++){
-    //     p = &ptable.proc[0][j];
-
-    //     if(p->state != RUNNABLE)
-    //       continue;
-
-    //     //TP: INTERV
-    //     p->clock  = 0;
-
-    //     // Switch to chosen process.  It is the process's job
-    //     // to release ptable.lock and then reacquire it
-    //     // before jumping back to us.
-    //     c->proc = p;
-    //     switchuvm(p);
-    //     p->state = RUNNING;
-
-    //     swtch(&(c->scheduler), p->context);
-    //     switchkvm();
-
-    //     // Process is done running for now.
-    //     // It should have changed its p->state before coming back.
-    //     c->proc = 0;
-    //   }
-    // }
+        // Process is done running for now.
+        // It should have changed its p->state before coming back.
+        c->proc = 0;
+      }
+    }
     release(&ptable.lock);
 
   }
@@ -839,6 +881,14 @@ int change_prio(int priority){
   myproc()->priority = priority;
 
   return 0;
+}
+
+//TP: PRIORIDADE
+/*
+
+*/
+int get_prio(int priority){
+  return myproc()->priority;
 }
 
 //TP: PRIORIDADE
