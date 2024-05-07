@@ -123,8 +123,8 @@ void            yield(void);
 //TP: TESTES
 int             wait2(int*, int*, int*);
 void            updateClock(void);
-//TP: PRIORIDADE
-void            updatePriority(void);
+//TP: AGING
+void            upgradePriority_Aging(void);
 
 // swtch.S
 void            swtch(struct context**, struct context*);

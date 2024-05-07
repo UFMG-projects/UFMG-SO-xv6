@@ -6,9 +6,13 @@
 #include "x86.h"
 #include "proc.h"
 #include "spinlock.h"
-
+//TP: PRIORIDADE
 #define NUMFILAS 4 //uma só pro init
 #define PRIO 1 //prioridade padrão = 2 ou seja [1] -> [0,1,2,3]
+//TP: AGING
+#define _1TO2 400
+#define _2TO3 200
+#define _3TO4 100
 
 struct {
   struct spinlock lock;
@@ -417,7 +421,7 @@ scheduler(void)
     
     acquire(&ptable.lock);
 
-    if(ptable.count_queue[3] > 0){ 
+    if(ptable.count_queue[3] > 0){ // MAIOR PRIORIDADE -> FIRST-COME-FIRST-SERVED
       p = ptable.queue_ready[3][0]; 
       if(p->state != RUNNABLE) //evitar o init
         continue;
@@ -475,7 +479,7 @@ scheduler(void)
       // It should have changed its p->state before coming back.
       c->proc = 0;
     }
-    else if(ptable.count_queue[1] > 0){ 
+    else if(ptable.count_queue[1] > 0){ // PRIORIDADE PADRÃO -> ROUND ROBIN
       p = ptable.queue_ready[1][0]; 
       if(p->state != RUNNABLE) //evitar o init
         continue;
@@ -867,32 +871,26 @@ void updateClock() {
   release(&ptable.lock);
 }
 
-//TP: PRIORIDADE
+//TP: AGING
 /*
-
-*/
-void updatePriority(){
-  // struct proc *p;
-  // acquire(&ptable.lock);
-  // for(int i = 0; i < NUMFILAS; i++){
-  //   for(int j = 0; j < ptable.proc_num_filas[i]; j++){
-  //     p = &ptable.proc[i][j];
-  //     //conferir se prioridade está correta
-  //     if(p->priority == i+1)
-  //       continue;
-
-  //     //prioridade errada = troca
-  //     for(int k = j; k < ptable.proc_num_filas[i] - 1; k++){
-  //       ptable.proc[i][k] = ptable.proc[i][k+1]; //andar com a fila
-  //     }
-  //     ptable.proc_num_filas[i]--; //diminuir num proc
-
-  //     //adicionar na nova prioridade
-  //     ptable.proc[p->priority-1][ptable.proc_num_filas[p->priority-1]] = *p; //adicionando na fila
-  //     ptable.proc_num_filas[p->priority-1]++; //aumentar num proc
-  //   }
-  // }
-  // release(&ptable.lock);
+ * Esta função é responsável por prevenir a inanição (starvation) ao implementar um mecanismo de envelhecimento (aging). 
+ */
+void upgradePriority_Aging(){
+  struct proc *p;
+  acquire(&ptable.lock);
+  for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
+    //checar se está na fila && se está esperando ha no minimo a menor prioridade para upgrade
+    if(p->state == RUNNABLE && p->retime >= _3TO4){ 
+      //checar qual fila
+      if(p->priority == 0 && p->retime >= _1TO2) //[0] -> [1]
+        p->priority++;
+      else if(p->priority == 1 && p->retime >= _2TO3) //[1] -> [2]
+        p->priority++;
+      else if(p->priority == 2 && p->retime >= _3TO4) //[2] -> [3]
+        p->priority++;
+    }
+  }
+  release(&ptable.lock);
 }
 
 //TP: PRIORIDADE
