@@ -2,12 +2,9 @@
     "version": "2.0.0",
     "tasks": [
         {
-            "label": "compile xv6 and run in debug mode",
-            "command": "bash",
-            "args": [
-                "-c",
-                "make && make qemu-nox-gdb"
-            ],
+            "label": "Compile xv6 and run in debug mode",
+            "command": "cd.. | make | make qemu-nox-gdb",
+            "args": [],
             "presentation": {
                 "echo": true,
                 "reveal": "always",

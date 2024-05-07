@@ -54,8 +54,8 @@ trap(struct trapframe *tf)
       //TP: TESTES
       updateClock(); 
       //TP: PRIORIDADE
-      if(ticks % 20 == 0)
-        updatePriority();
+      //if(ticks % 20 == 0)
+        //updatePriority();
       wakeup(&ticks);
       release(&tickslock);
     }
