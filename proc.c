@@ -6,13 +6,6 @@
 #include "x86.h"
 #include "proc.h"
 #include "spinlock.h"
-//TP: PRIORIDADE
-#define NUMFILAS 4 //uma só pro init
-#define PRIO 1 //prioridade padrão = 2 ou seja [1] -> [0,1,2,3]
-//TP: AGING
-#define _1TO2 400
-#define _2TO3 200
-#define _3TO4 100
 
 struct {
   struct spinlock lock;
@@ -421,7 +414,7 @@ scheduler(void)
     
     acquire(&ptable.lock);
 
-    if(ptable.count_queue[3] > 0){ // MAIOR PRIORIDADE -> FIRST-COME-FIRST-SERVED
+    if(ptable.count_queue[3] > 0){ // MAIOR PRIORIDADE -> FIRST-COME-FIRST-SERVED [FCFS]
       p = ptable.queue_ready[3][0]; 
       if(p->state != RUNNABLE) //evitar o init
         continue;
@@ -871,6 +864,25 @@ void updateClock() {
   release(&ptable.lock);
 }
 
+void auxTrocarFilaPriority(struct proc *p, int prioridade_nova){
+  cprintf("AUX de TROCA PRIO\n"); 
+  int posicao_do_p = 0;
+  //tirar processo da fila antiga
+  for(int i = 0; i < ptable.count_queue[prioridade_nova-1]; i++){
+    if(p->pid == ptable.queue_ready[prioridade_nova][i]->pid)
+      posicao_do_p = i;
+  }
+  //andar com fila antiga
+  for(int i = posicao_do_p; i < ptable.count_queue[prioridade_nova-1] - 1; i++){
+    ptable.queue_ready[prioridade_nova][i] = ptable.queue_ready[prioridade_nova][i+1]; 
+  }
+  ptable.count_queue[prioridade_nova]--; //diminuir num proc
+
+  //colocar processo na nova fila
+  ptable.queue_ready[prioridade_nova][ptable.count_queue[prioridade_nova]] = p; //adicionando na fila
+  ptable.count_queue[prioridade_nova]++; //aumentar num proc
+}
+
 //TP: AGING
 /*
  * Esta função é responsável por prevenir a inanição (starvation) ao implementar um mecanismo de envelhecimento (aging). 
@@ -879,15 +891,25 @@ void upgradePriority_Aging(){
   struct proc *p;
   acquire(&ptable.lock);
   for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
-    //checar se está na fila && se está esperando ha no minimo a menor prioridade para upgrade
-    if(p->state == RUNNABLE && p->retime >= _3TO4){ 
+    //checar se está na fila de pronto && se está esperando ha no minimo a menor prioridade para upgrade
+    if(p->state == 3 && p->retime >= _3TO4){ 
       //checar qual fila
-      if(p->priority == 0 && p->retime >= _1TO2) //[0] -> [1]
+      if(p->priority == 0 && p->retime >= _1TO2){ //[0] -> [1]
+        cprintf("TROCA PRIO 0 -> 1: %d\n",p->retime);  
         p->priority++;
-      else if(p->priority == 1 && p->retime >= _2TO3) //[1] -> [2]
+        cprintf("TROCA PRIO 0 -> 1\n"); 
+        auxTrocarFilaPriority(p,1);
+      }
+      else if(p->priority == 1 && p->retime >= _2TO3){ //[1] -> [2]
+        cprintf("TROCA PRIO 1 -> 2: %d\n",p->retime);  
         p->priority++;
-      else if(p->priority == 2 && p->retime >= _3TO4) //[2] -> [3]
+        auxTrocarFilaPriority(p,2);
+      }
+      else if(p->priority == 2 && p->retime >= _3TO4){ //[2] -> [3]
+        cprintf("TROCA PRIO 0 -> 1: %d\n",p->retime);  
         p->priority++;
+        auxTrocarFilaPriority(p,3);
+      }
     }
   }
   release(&ptable.lock);
@@ -895,11 +917,21 @@ void upgradePriority_Aging(){
 
 //TP: PRIORIDADE
 /*
-
+* Função change_prio muda a prioridade do processo que fez a chamada, caso esteja em runnable reajusta a fila de prontos adicionando o processo
 */
 int change_prio(int priority){
+  //erro prevenir do usuário
+  if(priority < 1 || priority > 4){
+    cprintf("\nWarning: prioridade não alterada(change_prio)\nPrioridades aceitas: [1,2,3,4]. Prioridade requisitada para troca foi: %d.\n\n", priority);
+    return -1;
+  }
+
   //mudar a prioridade
-  myproc()->priority = priority;
+  myproc()->priority = priority-1;
+  // se RUNNABLE, arrumar a fila de pronto
+  if(myproc()->state == 3){
+    auxTrocarFilaPriority(myproc(),priority-1);
+  } 
 
   return 0;
 }

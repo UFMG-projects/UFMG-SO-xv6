@@ -123,6 +123,7 @@ void            yield(void);
 //TP: TESTES
 int             wait2(int*, int*, int*);
 void            updateClock(void);
+int             change_prio(int);
 //TP: AGING
 void            upgradePriority_Aging(void);
 
