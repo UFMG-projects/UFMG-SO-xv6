@@ -59,6 +59,8 @@ struct proc {
   int clock; //clock até dar o valor do INTEV
   //TP: PRIORIDADE
   int priority; //prioridade dos processos[1,2,3,4], defalt: 2
+  //TP: ESCALONAMENTO LOTERIA
+  int tickets;
 };
 
 // Process memory is laid out contiguously, low addresses first:

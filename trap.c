@@ -53,6 +53,8 @@ trap(struct trapframe *tf)
       ticks++;
       //TP: TESTES
       updateClock(); 
+      //TP: AGING
+      upgradePriority_Aging();
       wakeup(&ticks);
       release(&tickslock);
     }
@@ -104,8 +106,8 @@ trap(struct trapframe *tf)
 
   // Force process to give up CPU on clock tick.
   // If interrupts were on while locks held, would need to check nlock.
-  if(myproc() && myproc()->state == RUNNING &&
-     tf->trapno == T_IRQ0+IRQ_TIMER && myproc()->clock == INTERV) //TP: INTERV
+  if(myproc() && myproc()->state == RUNNING && 
+     tf->trapno == T_IRQ0+IRQ_TIMER && myproc()->clock == INTERV && myproc()->priority != 3 && myproc()->priority != 2) //TP: INTERV
     yield();
 
   // Check if the process has been killed since we yielded

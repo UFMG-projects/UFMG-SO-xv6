@@ -5,6 +5,7 @@
 #define NUM_PROCESSOS 3
 
 void executarCargaTipoProcesso(int tipo_processo){
+
     switch (tipo_processo) {
         case 0: //CPU-bound process (CPU)
             for (int a = 0; a < 100; a++) {
@@ -46,6 +47,7 @@ int main(int argc, char *argv[]){
 		continue; // pai continua a criar outros child
 	}
 
+
     //estatisticas de cada processo
     int retime, rutime, stime;
     int cpu_retime = 0, cpu_rutime = 0, cpu_stime = 0, cpu_n = 0;
@@ -54,10 +56,6 @@ int main(int argc, char *argv[]){
     int pid_child = 0;
     for(int i = 0; i < NUM_PROCESSOS * n; i++){
         pid_child = wait2(&retime, &rutime, &stime);
-        if(pid_child == -1){
-            printf(1, "Erro na Wait2, ao retornar estatisticas do processo\n");
-		    exit();
-        }
         tipo_processo = pid_child % NUM_PROCESSOS; //calculo para atribuir um tipo ao processo
         switch(tipo_processo)
         {
@@ -89,11 +87,11 @@ int main(int argc, char *argv[]){
     }
 
     //estatisticas agregadas
-    printf(1, "\n\nCPU-Bound médias:\nREADY time: %d\nRUNNING time: %d\nSLEEPING time: %d\nTURNAROUND time: %d\n\n\n",
+    printf(1, "\n\nCPU-Bound medias:\nREADY time: %d\nRUNNING time: %d\nSLEEPING time: %d\nTURNAROUND time: %d\n\n\n",
            cpu_retime / cpu_n, cpu_rutime / cpu_n, cpu_stime / cpu_n, (cpu_retime + cpu_rutime + cpu_stime) / cpu_n);
-    printf(1, "S-Bound médias:\nREADY time: %d\nRUNNING time: %d\nSLEEPING  time: %d\nTURNAROUND time: %d\n\n\n",
+    printf(1, "S-Bound medias:\nREADY time: %d\nRUNNING time: %d\nSLEEPING  time: %d\nTURNAROUND time: %d\n\n\n",
            s_retime / s_n, s_rutime / s_n, s_stime / s_n, (s_retime + s_rutime + s_stime) / s_n);
-    printf(1, "I/O-Bound médias:\nREADY time: %d\nRUNNING time: %d\nSLEEPING time: %d\nTURNAROUND time: %d\n\n\n",
+    printf(1, "I/O-Bound medias:\nREADY time: %d\nRUNNING time: %d\nSLEEPING time: %d\nTURNAROUND time: %d\n\n\n",
            io_retime / io_n, io_rutime / io_n, io_stime / io_n, (io_retime + io_rutime + io_stime) / io_n);
 
     exit();
