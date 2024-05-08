@@ -108,6 +108,9 @@ found:
   p->retime = 0;
   p->rutime = 0;
 
+  //TP:LOTERIA
+  p->tickets = 10;
+
   release(&ptable.lock);
 
   // Allocate kernel stack.
@@ -399,7 +402,33 @@ scheduler(void)
   }
 }
 */
+int Random (){ 
+  static int next = 3251 ; 
+  next = ((next * next) / 100 ) % 10000 ; 
+  return next ; 
+} 
+ 
+int RandomInRange (int min, int max ){ 
+  return Random() % (max+1-min) + min ;  
+} 
 
+
+
+int loteria_Total(void){
+  struct proc *p;
+  int tickets_totais=0;
+
+  //percorre os processos da fila e soma a quantidade de tickets de cada processo
+  for(int i = 0; i < ptable.count_queue[2]; i++){  
+    p = ptable.queue_ready[2][i];
+    if(p->state != RUNNABLE)
+        continue;
+
+    tickets_totais += p->tickets; 
+  } 
+
+  return tickets_totais;          // retorna total de tickets com os processos da fila 
+}
 
 void
 scheduler(void)
@@ -408,13 +437,19 @@ scheduler(void)
   struct cpu *c = mycpu();
   c->proc = 0;
   
+  // TP: LOTERIA
+  int count = 0;
+  long golden_ticket = 0;
+  int total_tickets = 0;
+  int aux = 0;
+
   for(;;){
     // Enable interrupts on this processor.
     sti();
     
     acquire(&ptable.lock);
 
-    if(ptable.count_queue[3] > 0){ // MAIOR PRIORIDADE -> FIRST-COME-FIRST-SERVED [FCFS]
+    if(ptable.count_queue[3] > 0){ //--------------- FIRST-COME-FIRST-SERVED [FCFS]
       p = ptable.queue_ready[3][0]; 
       if(p->state != RUNNABLE) //evitar o init
         continue;
@@ -443,12 +478,33 @@ scheduler(void)
       // It should have changed its p->state before coming back.
       c->proc = 0;
     }
-    else if(ptable.count_queue[2] > 0){ 
-      p = ptable.queue_ready[2][0]; 
-      if(p->state != RUNNABLE) //evitar o init
-        continue;
+    else if(ptable.count_queue[2] > 0){ //--------------- LOTERIA
+      golden_ticket = 0;
+      count = 0;
+      aux = 0;
+      total_tickets = 0;
+
+      total_tickets = loteria_Total();                    //conta os tickets totais
+      golden_ticket = RandomInRange(0,total_tickets);     //escolhe um ticket aleatório
       
-      //TP: INTERV
+ 
+      for(aux = 0; aux < ptable.count_queue[2]; aux++){
+        
+        p = ptable.queue_ready[2][aux];  
+        if(p->state != RUNNABLE)
+          continue;
+          
+
+        //encontra o processo com o ticket sorteado
+        if ((count + p->tickets) < golden_ticket){
+          count += p->tickets;
+          continue;
+        }
+        break; 
+      } 
+
+      // executa o processo
+
       p->clock  = 0;
 
       // Switch to chosen process.  It is the process's job
@@ -458,8 +514,8 @@ scheduler(void)
       switchuvm(p);
 
       //TP: PRIORIDADE
-      for(int i = 0; i < ptable.count_queue[2] - 1; i++){
-        ptable.queue_ready[2][i] = ptable.queue_ready[2][i+1]; //andar com a fila
+      for(int j = aux; j < ptable.count_queue[2] - 1; j++){          
+        ptable.queue_ready[2][j] = ptable.queue_ready[2][j+1]; //andar com a fila
       }
       ptable.count_queue[2]--; //diminuir num proc
 
@@ -472,7 +528,7 @@ scheduler(void)
       // It should have changed its p->state before coming back.
       c->proc = 0;
     }
-    else if(ptable.count_queue[1] > 0){ // PRIORIDADE PADRÃO -> ROUND ROBIN
+    else if(ptable.count_queue[1] > 0){ //--------------- ROUND ROBIN
       p = ptable.queue_ready[1][0]; 
       if(p->state != RUNNABLE) //evitar o init
         continue;
@@ -501,7 +557,7 @@ scheduler(void)
       // It should have changed its p->state before coming back.
       c->proc = 0;
     }
-    else if(ptable.count_queue[0] > 0){ 
+    else if(ptable.count_queue[0] > 0){  //--------------- 
       p = ptable.queue_ready[0][0]; 
       if(p->state != RUNNABLE) //evitar o init
         continue;
@@ -530,41 +586,6 @@ scheduler(void)
       // It should have changed its p->state before coming back.
       c->proc = 0;
     }
-
-    // // FUNCIONA ---------------------------------------------------------------------------------
-    // for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
-    //   if(p->state != RUNNABLE)
-    //     continue;
-
-    //   //TP: INTERV
-    //   p->clock  = 0;
-
-    //   // Switch to chosen process.  It is the process's job
-    //   // to release ptable.lock and then reacquire it
-    //   // before jumping back to us.
-    //   c->proc = p;
-    //   switchuvm(p);
-
-    //   cprintf("NUM PROC NO SQUED %d\n",ptable.count_queue[1]);  
-    //   cprintf("id do primeiro %d\n",ptable.queue_ready[1][0]->pid);  
-    //   //TP: PRIORIDADE
-    //   for(int i = 0; i < ptable.count_queue[PRIO] - 1; i++){
-    //     ptable.queue_ready[PRIO][i] = ptable.queue_ready[PRIO][i+1]; //andar com a fila
-    //     cprintf("DADOS FILA: %d, %d, %s\n",ptable.queue_ready[1][0]->pid,ptable.queue_ready[1][0]->state,ptable.queue_ready[1][0]->name);  
-    //     cprintf("\na\n\n"); 
-    //   }
-    //   ptable.count_queue[PRIO]--; //diminuir num proc
-    //   //cprintf("chegou POS ANDADA DE FILA: %d\n", ptable.count_queue[NUMFILAS-3]);
-
-    //   p->state = RUNNING;
-
-    //   swtch(&(c->scheduler), p->context);
-    //   switchkvm();
-
-    //   // Process is done running for now.
-    //   // It should have changed its p->state before coming back.
-    //   c->proc = 0;
-    // }
 
     release(&ptable.lock);
 
