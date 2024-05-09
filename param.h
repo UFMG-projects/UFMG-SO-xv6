@@ -16,8 +16,17 @@
 #define INTERV        1
 //TP: PRIORIDADE
 #define NUMFILAS 4 //uma só pro init
-#define PRIO 1 //prioridade padrão = 2 ou seja [1] -> [0,1,2,3]
+#define PRIO 1 //prioridade padrão = 2 ou seja 1 -> [0,(1),2,3]
 //TP: AGING
-#define _1TO2 3000
-#define _2TO3 2500
-#define _3TO4 1000
+#define _1TO2 10 
+#define _2TO3 10
+#define _3TO4 20
+
+/*
+    Algoritmos atuais
+    0 -> RR
+    1 -> RR
+    2 -> LOTERIA
+    3 -> FCFS
+
+*/

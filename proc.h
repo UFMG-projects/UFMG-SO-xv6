@@ -61,6 +61,8 @@ struct proc {
   int priority; //prioridade dos processos[0,1,2,3], defalt: 1
   //TP: ESCALONAMENTO LOTERIA
   int tickets;
+  //TP: AGING
+  int readyTimeAging;
 };
 
 // Process memory is laid out contiguously, low addresses first:

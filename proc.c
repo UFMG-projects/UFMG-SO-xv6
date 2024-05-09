@@ -111,6 +111,9 @@ found:
   //TP:LOTERIA
   p->tickets = 10;
 
+  //TP: AGING
+  p->readyTimeAging = 0;
+
   release(&ptable.lock);
 
   // Allocate kernel stack.
@@ -456,6 +459,9 @@ scheduler(void)
       
       //TP: INTERV
       p->clock  = 0;
+      //TP: AGING
+      p->readyTimeAging = 0;
+      cprintf("FCFS: %d\n",p->pid);  
 
       // Switch to chosen process.  It is the process's job
       // to release ptable.lock and then reacquire it
@@ -506,6 +512,9 @@ scheduler(void)
       // executa o processo
 
       p->clock  = 0;
+      //TP: AGING
+      p->readyTimeAging = 0;
+      cprintf("LOTERIA: %d\n",p->pid);  
 
       // Switch to chosen process.  It is the process's job
       // to release ptable.lock and then reacquire it
@@ -535,6 +544,8 @@ scheduler(void)
       
       //TP: INTERV
       p->clock  = 0;
+      //TP: AGING
+      p->readyTimeAging = 0;
 
       // Switch to chosen process.  It is the process's job
       // to release ptable.lock and then reacquire it
@@ -549,6 +560,7 @@ scheduler(void)
       ptable.count_queue[1]--; //diminuir num proc
 
       p->state = RUNNING;
+      cprintf("RR: %d\n",p->pid);  
 
       swtch(&(c->scheduler), p->context);
       switchkvm();
@@ -564,6 +576,9 @@ scheduler(void)
       
       //TP: INTERV
       p->clock  = 0;
+      //TP: AGING
+      p->readyTimeAging = 0;
+      cprintf("RR _ V2: %d\n",p->pid);  
 
       // Switch to chosen process.  It is the process's job
       // to release ptable.lock and then reacquire it
@@ -875,6 +890,7 @@ void updateClock() {
     }
     else if(p->state == RUNNABLE){
       p->retime++;
+      p->readyTimeAging++;
       p->clock = 0;
     }
     else if(p->state == RUNNING){
@@ -887,21 +903,26 @@ void updateClock() {
 
 void auxTrocarFilaPriority(struct proc *p, int prioridade_nova){
   cprintf("AUX de TROCA PRIO\n"); 
+  int prioridade_antiga = prioridade_nova-1;
   int posicao_do_p = 0;
-  //tirar processo da fila antiga
-  for(int i = 0; i < ptable.count_queue[prioridade_nova-1]; i++){
-    if(p->pid == ptable.queue_ready[prioridade_nova][i]->pid)
+  //achar processo na fila antiga
+  for(int i = 0; i < ptable.count_queue[prioridade_antiga]; i++){
+    if(p->pid == ptable.queue_ready[prioridade_antiga][i]->pid)
       posicao_do_p = i;
   }
-  //andar com fila antiga
-  for(int i = posicao_do_p; i < ptable.count_queue[prioridade_nova-1] - 1; i++){
-    ptable.queue_ready[prioridade_nova][i] = ptable.queue_ready[prioridade_nova][i+1]; 
+  
+  //tirar processo e andar com fila antiga
+  for(int i = posicao_do_p; i < ptable.count_queue[prioridade_antiga] - 1; i++){
+    ptable.queue_ready[prioridade_antiga][i] = ptable.queue_ready[prioridade_antiga][i+1]; 
   }
-  ptable.count_queue[prioridade_nova]--; //diminuir num proc
+  ptable.count_queue[prioridade_antiga]--; //diminuir num proccprintf("DADOS2 -  antiga: %d, nova: %d, id: %d, prio_nova: %d\n",ptable.count_queue[prioridade_antiga],ptable.count_queue[prioridade_nova], p->pid, prioridade_nova);  
 
   //colocar processo na nova fila
   ptable.queue_ready[prioridade_nova][ptable.count_queue[prioridade_nova]] = p; //adicionando na fila
   ptable.count_queue[prioridade_nova]++; //aumentar num proc
+  
+  //zerou o tempo de espera
+  p->readyTimeAging = 0;;
 }
 
 //TP: AGING
@@ -910,27 +931,24 @@ void auxTrocarFilaPriority(struct proc *p, int prioridade_nova){
  */
 void upgradePriority_Aging(){
   struct proc *p;
+  
   acquire(&ptable.lock);
   for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
-    //checar se está na fila de pronto && se está esperando ha no minimo a menor prioridade para upgrade
-    if(p->state == 3 && p->retime >= _3TO4){ 
-      //checar qual fila
-      if(p->priority == 0 && p->retime >= _1TO2){ //[0] -> [1]
-        cprintf("TROCA PRIO 0 -> 1: %d\n",p->retime);  
-        p->priority++;
-        cprintf("TROCA PRIO 0 -> 1\n"); 
-        auxTrocarFilaPriority(p,1);
-      }
-      else if(p->priority == 1 && p->retime >= _2TO3){ //[1] -> [2]
-        cprintf("TROCA PRIO 1 -> 2: %d\n",p->retime);  
-        p->priority++;
-        auxTrocarFilaPriority(p,2);
-      }
-      else if(p->priority == 2 && p->retime >= _3TO4){ //[2] -> [3]
-        cprintf("TROCA PRIO 0 -> 1: %d\n",p->retime);  
-        p->priority++;
-        auxTrocarFilaPriority(p,3);
-      }
+    //checar qual fila
+    if(p->state == 3 && p->priority == 0 && p->readyTimeAging >= _1TO2){ //[0] -> [1]
+      cprintf("TROCA PRIO 0 -> 1: %d, id: %d\n",p->readyTimeAging, p->pid);  
+      p->priority++;
+      auxTrocarFilaPriority(p,1);
+    }
+    else if(p->state == 3 && p->priority == 1 && p->readyTimeAging >= _2TO3){ //[1] -> [2]
+      cprintf("TROCA PRIO 1 -> 2: %d, id: %d\n",p->readyTimeAging, p->pid);  
+      p->priority++;
+      auxTrocarFilaPriority(p,2);
+    }
+    else if(p->state == 3 && p->priority == 2 && p->readyTimeAging >= _3TO4){ //[2] -> [3]
+      cprintf("TROCA PRIO 2 -> 3: %d, id: %d\n",p->readyTimeAging, p->pid);  
+      p->priority++;
+      auxTrocarFilaPriority(p,3);
     }
   }
   release(&ptable.lock);
