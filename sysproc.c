@@ -108,3 +108,12 @@ int sys_yield(void){
   yield();
   return 0;
 }
+
+//TP: TESTES
+//tp_testes.c
+int sys_change_prio(void){
+  int new_priority;
+  if (argint(0, &new_priority) < 0)
+      return -1; // Retorna erro se não conseguir ler o argumento
+  return change_prio(new_priority);
+}

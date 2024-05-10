@@ -55,12 +55,18 @@ struct proc {
   int stime; //Tempo SLEEPING
   int retime; //Tempo READY(RUNNABLE) time
   int rutime; // Tempo executando (RUNNING)
+  int bstime; // Tempo de uma CPU burst
   //TP: INTERV
   int clock; //clock até dar o valor do INTEV
   //TP: PRIORIDADE
-  int priority; //prioridade dos processos[1,2,3,4], defalt: 2
+  int priority; //prioridade dos processos[0,1,2,3], defalt: 1
   //TP: ESCALONAMENTO LOTERIA
   int tickets;
+  //TP: ESCALONAMENTO SJF
+  int estimatedburst;
+  int previousburst;
+  //TP: AGING
+  int readyTimeAging;
 };
 
 // Process memory is laid out contiguously, low addresses first:
