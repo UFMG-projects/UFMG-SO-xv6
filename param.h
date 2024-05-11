@@ -16,7 +16,7 @@
 #define INTERV        1
 //TP: PRIORIDADE
 #define NUMFILAS 4 //uma só pro init
-#define PRIO 0 //prioridade padrão = 2 ou seja 1 -> [0,(1),2,3]
+#define PRIO 1 //prioridade padrão = 2 ou seja 1 -> [0,(1),2,3]
 //TP: AGING
 #define _1TO2 10 
 #define _2TO3 10
