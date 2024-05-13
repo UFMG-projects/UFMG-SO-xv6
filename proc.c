@@ -469,8 +469,6 @@ scheduler(void)
 
     if(ptable.count_queue[3] > 0){ //--------------- FIRST-COME-FIRST-SERVED [FCFS]
       p = ptable.queue_ready[3][0]; 
-      if(p->state != RUNNABLE) //evitar o init
-        continue;
       
       //TP: INTERV
       p->clock  = 0;
@@ -490,6 +488,7 @@ scheduler(void)
       ptable.count_queue[3]--; //diminuir num proc
 
       p->state = RUNNING;
+      // cprintf("FCFS: %d\n",p->pid);  
 
       swtch(&(c->scheduler), p->context);
       switchkvm();
@@ -511,9 +510,6 @@ scheduler(void)
       for(aux = 0; aux < ptable.count_queue[2]; aux++){
         
         p = ptable.queue_ready[2][aux];  
-        if(p->state != RUNNABLE)
-          continue;
-          
 
         //encontra o processo com o ticket sorteado
         if ((count + p->tickets) < golden_ticket){
@@ -542,6 +538,7 @@ scheduler(void)
       ptable.count_queue[2]--; //diminuir num proc
 
       p->state = RUNNING;
+      // cprintf("LOTERIA: %d\n",p->pid);  
 
       swtch(&(c->scheduler), p->context);
       switchkvm();
@@ -553,8 +550,6 @@ scheduler(void)
     else if(ptable.count_queue[1] > 0){ //--------------- ROUND ROBIN
 
       p = ptable.queue_ready[1][0]; 
-      if(p->state != RUNNABLE) //evitar o init
-        continue;
       
       //TP: INTERV
       p->clock  = 0;
@@ -574,6 +569,7 @@ scheduler(void)
       ptable.count_queue[1]--; //diminuir num proc
 
       p->state = RUNNING;
+      // cprintf("RR: %d\n",p->pid);  
 
       swtch(&(c->scheduler), p->context);
       switchkvm();
@@ -605,6 +601,7 @@ scheduler(void)
       ptable.count_queue[0]--; //diminuir num proc
 
       p->state = RUNNING;
+      // cprintf("SJF: %d\n",p->pid);  
 
       swtch(&(c->scheduler), p->context);
       switchkvm();
@@ -771,7 +768,6 @@ kill(int pid)
       p->killed = 1;
       // Wake process from sleep if necessary.
       if(p->state == SLEEPING){
-        p->state = RUNNABLE; 
 
         //TP: PRIORIDADE
         int prioridade = p->priority; //não muda a prioridade
@@ -873,7 +869,6 @@ int wait2(int* retime, int* rutime, int* stime){
         p->retime = 0;
         p->rutime = 0;
         p->stime = 0;
-        
         
         release(&ptable.lock);
         return pid; //retorna PID se deu certo
@@ -979,10 +974,12 @@ int change_prio(int priority){
 
   //mudar a prioridade
   myproc()->priority = priority-1;
+  yield();
+  
   // se RUNNABLE, arrumar a fila de pronto
   if(myproc()->state == 3){
     auxTrocarFilaPriority(myproc(),priority-1);
-  } 
+  }
 
   return 0;
 }
