@@ -488,6 +488,7 @@ scheduler(void)
       ptable.count_queue[3]--; //diminuir num proc
 
       p->state = RUNNING;
+      cprintf("FCFS: %d\n",p->pid);  
 
       swtch(&(c->scheduler), p->context);
       switchkvm();
@@ -537,6 +538,7 @@ scheduler(void)
       ptable.count_queue[2]--; //diminuir num proc
 
       p->state = RUNNING;
+      cprintf("LOTERIA: %d\n",p->pid);  
 
       swtch(&(c->scheduler), p->context);
       switchkvm();
@@ -567,6 +569,7 @@ scheduler(void)
       ptable.count_queue[1]--; //diminuir num proc
 
       p->state = RUNNING;
+      cprintf("RR: %d\n",p->pid);  
 
       swtch(&(c->scheduler), p->context);
       switchkvm();
@@ -598,6 +601,7 @@ scheduler(void)
       ptable.count_queue[0]--; //diminuir num proc
 
       p->state = RUNNING;
+      cprintf("SJF: %d\n",p->pid);  
 
       swtch(&(c->scheduler), p->context);
       switchkvm();
@@ -970,10 +974,12 @@ int change_prio(int priority){
 
   //mudar a prioridade
   myproc()->priority = priority-1;
+  yield();
+  
   // se RUNNABLE, arrumar a fila de pronto
   if(myproc()->state == 3){
     auxTrocarFilaPriority(myproc(),priority-1);
-  } 
+  }
 
   return 0;
 }

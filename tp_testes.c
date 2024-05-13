@@ -7,7 +7,7 @@
 int main(int argc, char *argv[]){
 
     int pid;
-    int prioridades[NUM_PROCESSOS] = {2,2,2,2,1,4,2,2,1,2,2,4,1,1,3,3,1,1,1,4}; // --------------------------------------------ALTERAR AS PRIORIDADES PARA TESTES
+    int prioridades[NUM_PROCESSOS] ={3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3}; // --------------------------------------------ALTERAR AS PRIORIDADES PARA TESTES
     //criar os processos
     for(int i = 0; i < NUM_PROCESSOS; i++) {
 		pid = fork();
@@ -16,8 +16,11 @@ int main(int argc, char *argv[]){
             change_prio(prioridades[i]); //mudar prioridade manualmente
 
             for (int a = 0; a < 100; a++) {
-                sleep(1);
+                for (int b = 0; b < 1000000; b++) {
+                    //printf(1, "");
+                }
             }
+            
 			exit(); //children exit here
 		}
 		continue; // pai continua a criar outros child
@@ -25,10 +28,11 @@ int main(int argc, char *argv[]){
 
     //estatisticas de cada processo
     int retime, rutime, stime;
+    int pid_c = 0;
     for(int i = 0; i < NUM_PROCESSOS; i++){
-        wait2(&retime, &rutime, &stime);
+        pid_c = wait2(&retime, &rutime, &stime);
 
-        printf(1, "pid: %d, READY time: %d, RUNNING time: %d, SLEEPING time: %d\n", pid, retime, rutime, stime);
+        printf(1, "pid: %d, READY time: %d, RUNNING time: %d, SLEEPING time: %d\n", pid_c, retime, rutime, stime);
     }
 
     exit();
