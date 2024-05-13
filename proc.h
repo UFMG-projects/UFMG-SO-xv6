@@ -61,6 +61,10 @@ struct proc {
   int priority; //prioridade dos processos[0,1,2,3], defalt: 1
   //TP: ESCALONAMENTO LOTERIA
   int tickets;
+  //TP: ESCALONAMENTO SJF
+  int estimatedburst;
+  int previousburst;
+  int bstime; // Tempo de uma CPU burst
   //TP: AGING
   int readyTimeAging;
 };

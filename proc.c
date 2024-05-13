@@ -83,10 +83,6 @@ allocproc(void)
 {
   struct proc *p;
   char *sp;
-  // cprintf("ptable.proc_num_filas[0]: %d\n",ptable.count_queue[0]);
-  // cprintf("ptable.proc_num_filas[1]: %d\n",ptable.count_queue[PRIO]);
-  // cprintf("ptable.proc_num_filas[2]: %d\n",ptable.count_queue[2]);
-  // cprintf("ptable.proc_num_filas[3]: %d\n",ptable.count_queue[3]);
 
   acquire(&ptable.lock);
 
@@ -98,7 +94,6 @@ allocproc(void)
   return 0;
 
 found:
-  //cprintf("chegou aqui ALLOCPROC 2'\n");
   p->state = EMBRYO;
   p->pid = nextpid++;
 
@@ -110,6 +105,11 @@ found:
 
   //TP:LOTERIA
   p->tickets = 10;
+
+  //TP: SJF
+  p->estimatedburst = 2;
+  p->previousburst = 0;
+  p->bstime = 0;
 
   //TP: AGING
   p->readyTimeAging = 0;
@@ -136,7 +136,6 @@ found:
   p->context = (struct context*)sp;
   memset(p->context, 0, sizeof *p->context);
   p->context->eip = (uint)forkret;
-  //cprintf("chegou aqui ALLOCPROC 3'\n");
 
   return p;
 }
@@ -146,7 +145,6 @@ found:
 void
 userinit(void)
 {
-  //cprintf("chegou aqui USERINIT 1'\n");
   struct proc *p;
   extern char _binary_initcode_start[], _binary_initcode_size[];
 
@@ -170,7 +168,6 @@ userinit(void)
 
   safestrcpy(p->name, "initcode", sizeof(p->name));
   p->cwd = namei("/");
-  //cprintf("chegou aqui USERINIT 2'\n");
 
   // this assignment to p->state lets other cores
   // run this process. the acquire forces the above
@@ -218,7 +215,6 @@ fork(void)
   int i, pid;
   struct proc *np;
   struct proc *curproc = myproc();
-  //cprintf("chegou aqui FORK 1'\n");
 
   // Allocate process.
   if((np = allocproc()) == 0){
@@ -272,7 +268,6 @@ exit(void)
   struct proc *curproc = myproc();
   struct proc *p;
   int fd;
-  //cprintf("chegou aqui EXIT 1'\n");
 
   if(curproc == initproc)
     panic("init exiting");
@@ -304,7 +299,6 @@ exit(void)
     }
   }
 
-  //cprintf("chegou aqui EXIT 4'\n");
   // Jump into the scheduler, never to return.
   curproc->state = ZOMBIE;
   sched();
@@ -319,7 +313,6 @@ wait(void)
   struct proc *p;
   int havekids, pid;
   struct proc *curproc = myproc();
-  //cprintf("chegou aqui WAIT 1'\n");
   
   acquire(&ptable.lock);
   for(;;){
@@ -405,6 +398,31 @@ scheduler(void)
   }
 }
 */
+
+//calcula o burst esperado para a próxima execução do processo
+void updateBurst(struct proc *p){
+  p->estimatedburst = (0.5 * p->estimatedburst) + (0.5 * p->previousburst);
+}
+
+
+//percorre todos os processos da fila e retorna a posição do processo com menor burst esperado
+int shortestBurst(){
+
+  struct proc *p;
+  int shortest = 10000; // inicializa com qualquer numero grande pra comparar com o tempo dos processos
+  int positionShortest = 0; // posição do processo com menor burst
+
+  for(int i = 0; i < ptable.count_queue[0]; i++){
+    p = ptable.queue_ready[0][i];
+    // compara e atualiza o processo com menor burst
+    if(p->estimatedburst < shortest){
+      shortest = p->estimatedburst;
+      positionShortest = i;
+    }
+  }
+return positionShortest;
+}
+
 int Random (){ 
   static int next = 3251 ; 
   next = ((next * next) / 100 ) % 10000 ; 
@@ -414,8 +432,6 @@ int Random (){
 int RandomInRange (int min, int max ){ 
   return Random() % (max+1-min) + min ;  
 } 
-
-
 
 int loteria_Total(void){
   struct proc *p;
@@ -429,7 +445,6 @@ int loteria_Total(void){
 
     tickets_totais += p->tickets; 
   } 
-
   return tickets_totais;          // retorna total de tickets com os processos da fila 
 }
 
@@ -454,14 +469,11 @@ scheduler(void)
 
     if(ptable.count_queue[3] > 0){ //--------------- FIRST-COME-FIRST-SERVED [FCFS]
       p = ptable.queue_ready[3][0]; 
-      if(p->state != RUNNABLE) //evitar o init
-        continue;
       
       //TP: INTERV
       p->clock  = 0;
       //TP: AGING
       p->readyTimeAging = 0;
-      cprintf("FCFS: %d\n",p->pid);  
 
       // Switch to chosen process.  It is the process's job
       // to release ptable.lock and then reacquire it
@@ -497,9 +509,6 @@ scheduler(void)
       for(aux = 0; aux < ptable.count_queue[2]; aux++){
         
         p = ptable.queue_ready[2][aux];  
-        if(p->state != RUNNABLE)
-          continue;
-          
 
         //encontra o processo com o ticket sorteado
         if ((count + p->tickets) < golden_ticket){
@@ -514,7 +523,6 @@ scheduler(void)
       p->clock  = 0;
       //TP: AGING
       p->readyTimeAging = 0;
-      cprintf("LOTERIA: %d\n",p->pid);  
 
       // Switch to chosen process.  It is the process's job
       // to release ptable.lock and then reacquire it
@@ -538,9 +546,8 @@ scheduler(void)
       c->proc = 0;
     }
     else if(ptable.count_queue[1] > 0){ //--------------- ROUND ROBIN
+
       p = ptable.queue_ready[1][0]; 
-      if(p->state != RUNNABLE) //evitar o init
-        continue;
       
       //TP: INTERV
       p->clock  = 0;
@@ -560,7 +567,6 @@ scheduler(void)
       ptable.count_queue[1]--; //diminuir num proc
 
       p->state = RUNNING;
-      cprintf("RR: %d\n",p->pid);  
 
       swtch(&(c->scheduler), p->context);
       switchkvm();
@@ -569,17 +575,16 @@ scheduler(void)
       // It should have changed its p->state before coming back.
       c->proc = 0;
     }
-    else if(ptable.count_queue[0] > 0){  //--------------- 
-      p = ptable.queue_ready[0][0]; 
-      if(p->state != RUNNABLE) //evitar o init
-        continue;
-      
+    else if(ptable.count_queue[0] > 0){  //--------------- SJF
+
+      int menorBurstPosicao = shortestBurst(); //  retorna a posição do processo com menor tempo de burst esperado
+
+      p = ptable.queue_ready[0][menorBurstPosicao]; //pega o respectivo processo
+
       //TP: INTERV
       p->clock  = 0;
       //TP: AGING
       p->readyTimeAging = 0;
-      cprintf("RR _ V2: %d\n",p->pid);  
-
       // Switch to chosen process.  It is the process's job
       // to release ptable.lock and then reacquire it
       // before jumping back to us.
@@ -587,7 +592,7 @@ scheduler(void)
       switchuvm(p);
 
       //TP: PRIORIDADE
-      for(int i = 0; i < ptable.count_queue[0] - 1; i++){
+      for(int i = menorBurstPosicao; i < ptable.count_queue[0] - 1; i++){
         ptable.queue_ready[0][i] = ptable.queue_ready[0][i+1]; //andar com a fila
       }
       ptable.count_queue[0]--; //diminuir num proc
@@ -601,9 +606,7 @@ scheduler(void)
       // It should have changed its p->state before coming back.
       c->proc = 0;
     }
-
     release(&ptable.lock);
-
   }
 }
 
@@ -695,9 +698,14 @@ sleep(void *chan, struct spinlock *lk)
     release(lk);
   }
   // Go to sleep.
+  
+  // TP - SJF
+  p->previousburst = p->bstime;
+  updateBurst(p);
+
   p->chan = chan;
   p->state = SLEEPING;
-  //cprintf("chegou aqui SLEEP'\n");
+  p->bstime = 0;
 
   sched();
 
@@ -751,13 +759,11 @@ kill(int pid)
   struct proc *p;
 
   acquire(&ptable.lock);
-  //cprintf("chegou aqui KILL 1'\n");
   for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
     if(p->pid == pid){
       p->killed = 1;
       // Wake process from sleep if necessary.
       if(p->state == SLEEPING){
-        p->state = RUNNABLE; 
 
         //TP: PRIORIDADE
         int prioridade = p->priority; //não muda a prioridade
@@ -894,6 +900,7 @@ void updateClock() {
       p->clock = 0;
     }
     else if(p->state == RUNNING){
+      p->bstime++;
       p->rutime++;
       p->clock++;
     }
@@ -902,7 +909,6 @@ void updateClock() {
 }
 
 void auxTrocarFilaPriority(struct proc *p, int prioridade_nova){
-  cprintf("AUX de TROCA PRIO\n"); 
   int prioridade_antiga = prioridade_nova-1;
   int posicao_do_p = 0;
   //achar processo na fila antiga
@@ -915,7 +921,7 @@ void auxTrocarFilaPriority(struct proc *p, int prioridade_nova){
   for(int i = posicao_do_p; i < ptable.count_queue[prioridade_antiga] - 1; i++){
     ptable.queue_ready[prioridade_antiga][i] = ptable.queue_ready[prioridade_antiga][i+1]; 
   }
-  ptable.count_queue[prioridade_antiga]--; //diminuir num proccprintf("DADOS2 -  antiga: %d, nova: %d, id: %d, prio_nova: %d\n",ptable.count_queue[prioridade_antiga],ptable.count_queue[prioridade_nova], p->pid, prioridade_nova);  
+  ptable.count_queue[prioridade_antiga]--; //diminuir num proc
 
   //colocar processo na nova fila
   ptable.queue_ready[prioridade_nova][ptable.count_queue[prioridade_nova]] = p; //adicionando na fila
@@ -936,17 +942,14 @@ void upgradePriority_Aging(){
   for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
     //checar qual fila
     if(p->state == 3 && p->priority == 0 && p->readyTimeAging >= _1TO2){ //[0] -> [1]
-      cprintf("TROCA PRIO 0 -> 1: %d, id: %d\n",p->readyTimeAging, p->pid);  
       p->priority++;
       auxTrocarFilaPriority(p,1);
     }
     else if(p->state == 3 && p->priority == 1 && p->readyTimeAging >= _2TO3){ //[1] -> [2]
-      cprintf("TROCA PRIO 1 -> 2: %d, id: %d\n",p->readyTimeAging, p->pid);  
       p->priority++;
       auxTrocarFilaPriority(p,2);
     }
     else if(p->state == 3 && p->priority == 2 && p->readyTimeAging >= _3TO4){ //[2] -> [3]
-      cprintf("TROCA PRIO 2 -> 3: %d, id: %d\n",p->readyTimeAging, p->pid);  
       p->priority++;
       auxTrocarFilaPriority(p,3);
     }

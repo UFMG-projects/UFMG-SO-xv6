@@ -8,17 +8,22 @@ void executarCargaTipoProcesso(int tipo_processo){
     switch (tipo_processo) {
         case 0: //CPU-bound process (CPU)
             for (int a = 0; a < 100; a++) {
-                for (int b = 0; b < 1000000; b++) {}
+                for (int b = 0; b < 1000000; b++) {
+                    //printf(1, "");
+                }
             }
             break;
         case 1: //S-CPU
             for (int a = 0; a < 20; a++) {
-                for (int b = 0; b < 1000000; b++) {}
+                for (int b = 0; b < 1000000; b++) {
+                    //printf(1, "");
+                }
                 yield();
             }
             break;
         case 2: //IO-bound process (IO)
             for (int a = 0; a < 100; a++) {
+                //printf(1, "");
                 sleep(1);
             }
             break;
