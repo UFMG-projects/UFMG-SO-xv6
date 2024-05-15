@@ -412,8 +412,8 @@ int shortestBurst(){
   int shortest = 10000; // inicializa com qualquer numero grande pra comparar com o tempo dos processos
   int positionShortest = 0; // posição do processo com menor burst
 
-  for(int i = 0; i < ptable.count_queue[0]; i++){
-    p = ptable.queue_ready[0][i];
+  for(int i = 0; i < ptable.count_queue[2]; i++){
+    p = ptable.queue_ready[2][i];
     // compara e atualiza o processo com menor burst
     if(p->estimatedburst < shortest){
       shortest = p->estimatedburst;
@@ -438,8 +438,8 @@ int loteria_Total(void){
   int tickets_totais=0;
 
   //percorre os processos da fila e soma a quantidade de tickets de cada processo
-  for(int i = 0; i < ptable.count_queue[2]; i++){  
-    p = ptable.queue_ready[2][i];
+  for(int i = 0; i < ptable.count_queue[0]; i++){  
+    p = ptable.queue_ready[0][i];
     if(p->state != RUNNABLE)
         continue;
 
@@ -497,34 +497,16 @@ scheduler(void)
       // It should have changed its p->state before coming back.
       c->proc = 0;
     }
-    else if(ptable.count_queue[2] > 0){ //--------------- LOTERIA
-      golden_ticket = 0;
-      count = 0;
-      aux = 0;
-      total_tickets = 0;
+    else if(ptable.count_queue[2] > 0){ //--------------- SJF
 
-      total_tickets = loteria_Total();                    //conta os tickets totais
-      golden_ticket = RandomInRange(0,total_tickets);     //escolhe um ticket aleatório
-      
- 
-      for(aux = 0; aux < ptable.count_queue[2]; aux++){
-        
-        p = ptable.queue_ready[2][aux];  
+      int menorBurstPosicao = shortestBurst(); //  retorna a posição do processo com menor tempo de burst esperado
 
-        //encontra o processo com o ticket sorteado
-        if ((count + p->tickets) < golden_ticket){
-          count += p->tickets;
-          continue;
-        }
-        break; 
-      } 
+      p = ptable.queue_ready[2][menorBurstPosicao]; //pega o respectivo processo
 
-      // executa o processo
-
+      //TP: INTERV
       p->clock  = 0;
       //TP: AGING
       p->readyTimeAging = 0;
-
       // Switch to chosen process.  It is the process's job
       // to release ptable.lock and then reacquire it
       // before jumping back to us.
@@ -532,13 +514,13 @@ scheduler(void)
       switchuvm(p);
 
       //TP: PRIORIDADE
-      for(int j = aux; j < ptable.count_queue[2] - 1; j++){          
-        ptable.queue_ready[2][j] = ptable.queue_ready[2][j+1]; //andar com a fila
+      for(int i = menorBurstPosicao; i < ptable.count_queue[2] - 1; i++){
+        ptable.queue_ready[2][i] = ptable.queue_ready[2][i+1]; //andar com a fila
       }
       ptable.count_queue[2]--; //diminuir num proc
 
       p->state = RUNNING;
-      // cprintf("LOTERIA: %d\n",p->pid);  
+      // cprintf("SJF: %d\n",p->pid);  
 
       swtch(&(c->scheduler), p->context);
       switchkvm();
@@ -546,6 +528,7 @@ scheduler(void)
       // Process is done running for now.
       // It should have changed its p->state before coming back.
       c->proc = 0;
+      
     }
     else if(ptable.count_queue[1] > 0){ //--------------- ROUND ROBIN
 
@@ -578,16 +561,34 @@ scheduler(void)
       // It should have changed its p->state before coming back.
       c->proc = 0;
     }
-    else if(ptable.count_queue[0] > 0){  //--------------- SJF
+    else if(ptable.count_queue[0] > 0){ //--------------- LOTERIA
+      golden_ticket = 0;
+      count = 0;
+      aux = 0;
+      total_tickets = 0;
 
-      int menorBurstPosicao = shortestBurst(); //  retorna a posição do processo com menor tempo de burst esperado
+      total_tickets = loteria_Total();                    //conta os tickets totais
+      golden_ticket = RandomInRange(0,total_tickets);     //escolhe um ticket aleatório
+      
+ 
+      for(aux = 0; aux < ptable.count_queue[0]; aux++){
+        
+        p = ptable.queue_ready[0][aux];  
 
-      p = ptable.queue_ready[0][menorBurstPosicao]; //pega o respectivo processo
+        //encontra o processo com o ticket sorteado
+        if ((count + p->tickets) < golden_ticket){
+          count += p->tickets;
+          continue;
+        }
+        break; 
+      } 
 
-      //TP: INTERV
+      // executa o processo
+
       p->clock  = 0;
       //TP: AGING
       p->readyTimeAging = 0;
+
       // Switch to chosen process.  It is the process's job
       // to release ptable.lock and then reacquire it
       // before jumping back to us.
@@ -595,13 +596,13 @@ scheduler(void)
       switchuvm(p);
 
       //TP: PRIORIDADE
-      for(int i = menorBurstPosicao; i < ptable.count_queue[0] - 1; i++){
-        ptable.queue_ready[0][i] = ptable.queue_ready[0][i+1]; //andar com a fila
+      for(int j = aux; j < ptable.count_queue[0] - 1; j++){          
+        ptable.queue_ready[0][j] = ptable.queue_ready[0][j+1]; //andar com a fila
       }
-      ptable.count_queue[0]--; //diminuir num proc
+      ptable.count_queue[2]--; //diminuir num proc
 
       p->state = RUNNING;
-      // cprintf("SJF: %d\n",p->pid);  
+      // cprintf("LOTERIA: %d\n",p->pid);  
 
       swtch(&(c->scheduler), p->context);
       switchkvm();

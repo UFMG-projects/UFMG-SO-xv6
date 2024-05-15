@@ -1,36 +1,7 @@
-//TP: TESTES
 #include "types.h"
 #include "user.h"
 
 #define NUM_PROCESSOS 3
-
-void executarCargaTipoProcesso(int tipo_processo){
-    switch (tipo_processo) {
-        case 0: //CPU-bound process (CPU)
-            for (int a = 0; a < 100; a++) {
-                for (int b = 0; b < 1000000; b++) {
-                    //printf(1, "");
-                }
-            }
-            break;
-        case 1: //S-CPU
-            for (int a = 0; a < 20; a++) {
-                for (int b = 0; b < 1000000; b++) {
-                    //printf(1, "");
-                }
-                yield();
-            }
-            break;
-        case 2: //IO-bound process (IO)
-            for (int a = 0; a < 100; a++) {
-                //printf(1, "");
-                sleep(1);
-            }
-            break;
-        default:
-            break;
-    }
-}
 
 int main(int argc, char *argv[]){
     if(argc != 2){
@@ -45,7 +16,25 @@ int main(int argc, char *argv[]){
 		pid = fork();
 		if (pid == 0) {//child
             tipo_processo = getpid() % NUM_PROCESSOS; //calculo para atribuir um tipo ao processo
-            executarCargaTipoProcesso(tipo_processo);
+            if(tipo_processo == 0){ //CPU
+                for (int i = 0; i < 100; i++){
+                    for (volatile int j = 0; j < 1000000; j++)
+                        ;
+                }
+            }
+            else if(tipo_processo == 1){ //S-CPU
+                for (int i = 0; i < 20; i++){
+                    for (volatile int j = 0; j < 1000000; j++)
+                        ;
+                    yield();
+                }
+            }
+            else if(tipo_processo == 2){ //IO
+                for (int i = 0; i < 100; i++){
+                    sleep(1);
+                }
+            }
+            
 			exit(); //children exit here
 		}
 		continue; // pai continua a criar outros child
@@ -60,31 +49,26 @@ int main(int argc, char *argv[]){
     for(int i = 0; i < NUM_PROCESSOS * n; i++){
         pid_child = wait2(&retime, &rutime, &stime);
         tipo_processo = pid_child % NUM_PROCESSOS; //calculo para atribuir um tipo ao processo
-        switch(tipo_processo)
-        {
-            case 0: //CPU-bound process (CPU)
-                printf(1, "pid: %d, CPU-Bound, READY time: %d, RUNNING time: %d, SLEEPING time: %d\n", pid_child, retime, rutime, stime);
-                cpu_retime+=retime;
-                cpu_rutime+=rutime;
-                cpu_stime+=stime;
-                cpu_n++;
-                break;
-            case 1: //S-CPU
-                printf(1, "pid: %d, S-Bound, READY time: %d, RUNNING time: %d, SLEEPING time: %d\n", pid_child, retime, rutime, stime);
-                s_retime+=retime;
-                s_rutime+=rutime;
-                s_stime+=stime;
-                s_n++;
-                break;  
-            case 2: //IO-bound process (IO)
-                printf(1, "pid: %d, IO-Bound, READY time: %d, RUNNING time: %d, SLEEPING time: %d\n", pid_child, retime, rutime, stime);
-                io_retime+=retime;
-                io_rutime+=rutime;
-                io_stime+=stime;
-                io_n++;
-                break;
-            default:
-                break;
+        if(tipo_processo == 0){ //CPU
+            printf(1, "pid: %d, CPU-Bound, READY time: %d, RUNNING time: %d, SLEEPING time: %d\n", pid_child, retime, rutime, stime);
+            cpu_retime+=retime;
+            cpu_rutime+=rutime;
+            cpu_stime+=stime;
+            cpu_n++;
+        }
+        else if(tipo_processo == 1){ //S-CPU
+            printf(1, "pid: %d, S-Bound, READY time: %d, RUNNING time: %d, SLEEPING time: %d\n", pid_child, retime, rutime, stime);
+            s_retime+=retime;
+            s_rutime+=rutime;
+            s_stime+=stime;
+            s_n++;
+        }
+        else if(tipo_processo == 2){ //IO
+            printf(1, "pid: %d, IO-Bound, READY time: %d, RUNNING time: %d, SLEEPING time: %d\n", pid_child, retime, rutime, stime);
+            io_retime+=retime;
+            io_rutime+=rutime;
+            io_stime+=stime;
+            io_n++;
         }
 
     }
