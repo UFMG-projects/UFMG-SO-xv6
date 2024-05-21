@@ -1,12 +1,12 @@
-#Multi-level Feedback Queue Scheduler for XV6
+# Multi-level Feedback Queue Scheduler for XV6
 
-##Course project of Operating Systems
+## Course project of Operating Systems
 
-##Members:
+## Members:
 - Gabriel Oliveira Sant'Ana
 - Mariana Assis Ramos
 
-##Introduction
+## Introduction
  On this project our objective is to replace the scheduler
 
 
